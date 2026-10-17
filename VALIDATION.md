@@ -1,33 +1,42 @@
-# Validation record — 2026-10-17
+# Validation record
 
-## Automated checks
+## Corrected native-transcript workflow (2026-10-17)
 
-- TypeScript SDK type check: PASS.
-- Seven Node domain tests: PASS.
-- Ten OpenTUI component/edge-case tests, 36 assertions: PASS.
-- Compiled plugin build: PASS.
-- Independent reviewer found a short-line vertical navigation regression; fixed and its regression test now passes.
+Tested package in an isolated official OpenCode **2.0.32** Linux CLI, with a synthetic imported assistant response:
 
-Renderer tests use real OpenTUI with fixture host APIs. They do not alone prove host key routing or remote delivery.
+> Alpha beta gamma. / Second line with emoji 👩🏽‍💻. / Repeated beta, selected by exact offsets.
 
-## Actual host smoke test
+The test used private temporary XDG configuration/data/state/cache directories, no user credentials and no model submission. Process-only supported flags `OPENCODE_DISABLE_MODELS_FETCH=1` and `OPENCODE_DISABLE_AUTOUPDATE=1` disabled background catalog/update checks.
 
-Official `@opencode/cli-linux-x64` 2.0.32 binary, isolated temporary XDG config/data/state/cache, no account or model credentials and no model calls. A synthetic assistant session was imported through the official session import command.
+### Actual host outcomes
 
-- Load absolute plugin directory through global `cli.json`: PASS. `/annotate` appears in slash suggestions.
-- No-session command safety: PASS; shows “Open a session first.”
-- At 140 columns, command opens docked annotation sidebar beside transcript: PASS.
-- Actual `r` key opens source picker; Enter selects fixture response: PASS.
-- Actual Shift+Right selects exact `Alpha` range 0–5; `a` saves highlight-only note #1: PASS.
-- Disk JSON retains source session/message/part, snapshot, range, exact quote and blank comment: PASS.
-- Actual edit dialog updates comment to `Clarify this passage`: PASS.
-- Ctrl+S opens review/confirmation; Escape cancels without admission: PASS. No model request made.
-- Full host restart at 90 columns restores note/comment and uses fullscreen panel fallback: PASS.
-- Actual edit/remove flow removes the note and pending indicator: PASS.
-- Escape closes panel and main composer accepts an unsent draft: PASS. No draft submitted.
+- Host loaded rebuilt plugin through the global `cli.json` absolute-directory configuration.
+- At 130×40, SGR mouse drag on the **original main transcript** selected `Alpha`. Ctrl+Shift+A opened the optional-comment dialog after the native highlight was cleared by host key routing.
+- Enter committed `Native main transcript smoke note` locally. The docked notes-only panel displayed #1. Durable store inspection verified source `msg_fixture_001`, part 0, quote `Alpha`, UTF-16 range 0–5 and complete source text; batches remained empty.
+- Clean host exit/restart retained the note and pending-count row.
+- Native selection of repeated `beta` was refused with the exact-unique-source message. No note was added.
+- Native selection of unique `gamma` and an empty comment committed #2. Durable JSON verified range 11–16, empty comment and two pending notes.
+- Clicking/focusing the sidebar then Ctrl+S opened the explicit two-note Send batch confirmation. Escape canceled. Both notes and the visible queue remained; durable batches were still empty.
+- Host exited cleanly. No Send confirmation was accepted and no model answer was requested.
 
-## Not verified
+The successful persistence record proves the selected original source was mapped and committed in this host. It does not establish every Markdown structure, terminal mouse protocol or layout.
 
-Real-model delivery, server idempotency under network faults, multi-process storage races, dynamic resize while selecting, mouse-drag selection, platform-specific Windows/macOS behavior, exhaustive performance/stress, and plugin removal/data lifecycle. No claim of full feature parity or production certification.
+### Automated checks on corrected code
 
-Same-ID admission deduplication is supported by inspected host source; failure/retry behavior is unit/component-tested, not exercised against a live remote model. The source viewer is Markdown text in a separate sidebar, not in-place rendered-transcript annotations.
+- `npm run typecheck`: pass.
+- `npm test`: 20 Node domain/selection/bounds tests pass.
+- `npm run test:panel`: 30 real OpenTUI renderer tests pass, 337 assertions in the final recorded run.
+- `npm run build`: pass; precompiled `dist/tui.js` and source map regenerated.
+- `npm run benchmark`: measured separately; see PERFORMANCE.md. Timing observations are not guarantees on other computers.
+
+Renderer tests use real public Selection/MarkdownRenderable objects and fixture dialogs/storage/admission APIs. They cover native-release capture before selection clearing, optional commit/cancel, revert invalidation, note-only stack, edits/deletes, stable numbering, durable restart, pre-admission write failure, post-admission sent-save failure, incorrect/missing acknowledgment, identical-ID retry, session leave-and-return, replacement-panel closure races, and source/size refusals. The capture fixture emits the public release event carrying a real Selection; actual mouse release was separately exercised in the host.
+
+Storage failure tests model the inspected atomic host store contract. They do not simulate a physical disk fault in the running host. Send success/hide is verified through admission fixtures, not a live remote model request.
+
+### Explicitly unverified
+
+Real model delivery/completion, live server duplicate-admission reconciliation, cross-process storage races, every rendering/formatting mode, plugin removal under active operations, live failed disk writes, exhaustive resize/narrow-terminal behavior of the revised panel, and extended host performance soak testing.
+
+## Superseded prototype evidence
+
+Earlier checks exercised keyboard selection on a copied response inside the sidebar, including live edit/delete, cancel send, restart and narrow-terminal fallback. That interface has been removed. Those checks are not represented as native main-transcript selection coverage; only the corrected checks above establish that behavior.

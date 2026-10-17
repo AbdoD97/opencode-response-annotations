@@ -1,0 +1,193 @@
+{
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCPUs": 9
+  },
+  "results": [
+    {
+      "name": "resolve 1000 chars / 100 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0358,
+      "p95Ms": 0.1073
+    },
+    {
+      "name": "validate 1000 chars / 100 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0435,
+      "p95Ms": 0.1756
+    },
+    {
+      "name": "resolve 10000 chars / 1000 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0869,
+      "p95Ms": 0.6338
+    },
+    {
+      "name": "validate 10000 chars / 1000 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0951,
+      "p95Ms": 0.237
+    },
+    {
+      "name": "resolve 100000 chars / 1000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 0.072,
+      "p95Ms": 0.9281
+    },
+    {
+      "name": "validate 100000 chars / 1000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 0.7417,
+      "p95Ms": 1.2241
+    },
+    {
+      "name": "resolve 100000 chars / 10000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 0.4406,
+      "p95Ms": 0.5487
+    },
+    {
+      "name": "validate 100000 chars / 10000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 1.0009,
+      "p95Ms": 1.1905
+    },
+    {
+      "name": "resolve 500000 chars / 10000 messages (refusal)",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 0.0041,
+      "p95Ms": 0.0054
+    },
+    {
+      "name": "refusal 500000/10000",
+      "error": "Error: Response is too large to annotate safely (100,000 characters per selected part). Use a shorter response."
+    },
+    {
+      "name": "resolve unicode 50K UTF16 / 1K history",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.1606,
+      "p95Ms": 0.2008
+    },
+    {
+      "name": "resolve 1K selected renderables / 1K history",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.1938,
+      "p95Ms": 0.4141
+    },
+    {
+      "name": "reject repeated quote 90K / 1K history",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.1588,
+      "p95Ms": 0.1861
+    },
+    {
+      "name": "drag event fast rejection",
+      "iterations": 1000,
+      "warmups": 100,
+      "medianMs": 0.0027,
+      "p95Ms": 0.004
+    },
+    {
+      "name": "add note with 1 existing",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0672,
+      "p95Ms": 0.1033
+    },
+    {
+      "name": "prepare batch 1 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.142,
+      "p95Ms": 0.2293
+    },
+    {
+      "name": "storage 1 notes / shared 10K source",
+      "acceptedNotes": 1,
+      "pendingBytes": 20259,
+      "preparedBytes": 61430,
+      "sentBytes": 41225,
+      "payloadBytes": 20800
+    },
+    {
+      "name": "serialize persisted 1 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0477,
+      "p95Ms": 0.0526
+    },
+    {
+      "name": "add note with 10 existing",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.3544,
+      "p95Ms": 0.3915
+    },
+    {
+      "name": "prepare batch 10 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.6731,
+      "p95Ms": 0.7781
+    },
+    {
+      "name": "storage 10 notes / shared 10K source",
+      "acceptedNotes": 10,
+      "pendingBytes": 202079,
+      "preparedBytes": 426753,
+      "sentBytes": 224729,
+      "payloadBytes": 22268
+    },
+    {
+      "name": "serialize persisted 10 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.2546,
+      "p95Ms": 0.2886
+    },
+    {
+      "name": "add note with 100 existing (refusal)",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0031,
+      "p95Ms": 0.0033
+    },
+    {
+      "name": "prepare batch 100 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 5.4825,
+      "p95Ms": 8.1431
+    },
+    {
+      "name": "storage 100 notes / shared 10K source",
+      "acceptedNotes": 100,
+      "pendingBytes": 2020441,
+      "preparedBytes": 4080397,
+      "sentBytes": 2060012,
+      "payloadBytes": 37029
+    },
+    {
+      "name": "serialize persisted 100 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 2.1593,
+      "p95Ms": 3.8421
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCPUs": 9
+  },
+  "results": [
+    {
+      "name": "resolve 1000 chars / 100 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.1141,
+      "p95Ms": 0.2519
+    },
+    {
+      "name": "validate 1000 chars / 100 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.104,
+      "p95Ms": 0.228
+    },
+    {
+      "name": "resolve 10000 chars / 1000 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.9885,
+      "p95Ms": 1.743
+    },
+    {
+      "name": "validate 10000 chars / 1000 messages",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 1.1874,
+      "p95Ms": 1.9155
+    },
+    {
+      "name": "resolve 100000 chars / 1000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 13.5381,
+      "p95Ms": 16.7049
+    },
+    {
+      "name": "validate 100000 chars / 1000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 13.2107,
+      "p95Ms": 17.8852
+    },
+    {
+      "name": "resolve 500000 chars / 10000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 69.1544,
+      "p95Ms": 96.5144
+    },
+    {
+      "name": "validate 500000 chars / 10000 messages",
+      "iterations": 10,
+      "warmups": 5,
+      "medianMs": 63.4962,
+      "p95Ms": 88.8723
+    },
+    {
+      "name": "reject repeated quote 100K / 1K history",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0606,
+      "p95Ms": 0.0816
+    },
+    {
+      "name": "drag event fast rejection",
+      "iterations": 1000,
+      "warmups": 100,
+      "medianMs": 0.0027,
+      "p95Ms": 0.0031
+    },
+    {
+      "name": "storage 1 notes / shared 10K source",
+      "acceptedNotes": 1,
+      "pendingBytes": 20259,
+      "preparedBytes": 61430,
+      "sentBytes": 41225,
+      "payloadBytes": 20800
+    },
+    {
+      "name": "serialize persisted 1 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.0393,
+      "p95Ms": 0.0972
+    },
+    {
+      "name": "storage 10 notes / shared 10K source",
+      "acceptedNotes": 10,
+      "pendingBytes": 202079,
+      "preparedBytes": 426753,
+      "sentBytes": 224729,
+      "payloadBytes": 22268
+    },
+    {
+      "name": "serialize persisted 10 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 0.2476,
+      "p95Ms": 0.3247
+    },
+    {
+      "name": "storage 100 notes / shared 10K source",
+      "acceptedNotes": 100,
+      "pendingBytes": 2020441,
+      "preparedBytes": 4080397,
+      "sentBytes": 2060012,
+      "payloadBytes": 37029
+    },
+    {
+      "name": "serialize persisted 100 notes",
+      "iterations": 30,
+      "warmups": 5,
+      "medianMs": 1.9206,
+      "p95Ms": 2.2586
+    }
+  ]
+}

@@ -1,29 +1,29 @@
 # Capability and readiness matrix
 
-| Requested behavior | Implementation | Verification / difference |
+| Behavior | Current implementation | Evidence / limitation |
 |---|---|---|
-| Select a response passage | Exact grapheme-safe keyboard range selection on a chosen completed assistant text part | Domain + rendered component tests; real host Shift+arrow dispatch verified |
-| Annotation sidebar beside conversation | Public session.panel slot, default docked presentation | Host source confirms 108-column threshold; narrow terminals become fullscreen |
-| In-place transcript highlight / mouse drag | Not implemented | No documented semantic response-range or message-render slot; no private render-tree hacks |
-| Numbered, anchored notes | Session/message/part/snapshot/range, stable numbers and underline/start markers | Repeated quotes, reversed selection, whitespace and Unicode tested |
-| Optional comment, edit, remove | Separate dialogs; highlight-only shortcut | Rendered component workflow tested; prepared uncertain batches cannot be edited |
-| Several pending notes | Durable host JSON store | Domain isolation and JSON restoration tested; disk write and host restart verified; multi-process propagation pending |
-| Compact main composer | Pending-count row; untouched main draft | Slot/source implementation checked; live loading, close/focus return and restart smoke-tested |
-| Batch with full context | Explicit confirmation; full selected source and sibling assistant text parts, precise numbered quotes/comments | Payload tests; no real model call performed |
-| Sent references | Saved references open their original snapshots in sidebar | Component test; no clickable decorations in main transcript |
-| Duplicate/uncertain sends | Prepared stable ID, queue admission, retry same payload/ID | Failed-response/retry tests; host source confirms idempotent admission |
-| Cross-session / changed confirmation | Source reset, async result guards, note-snapshot comparison, revert checks | Component tests and independent review; real multi-instance race testing pending |
-| Supported local install | Root tui.js + package ./tui export and compiled dist | Published Host.resolve/import smoke test succeeds; live official V2 2.0.32 host loaded plugin via global cli.json |
+| Highlight original response | Native terminal mouse selection in main transcript | Actual 2.0.32 host mouse drag accepted unique Alpha/gamma selections |
+| Source identity/ranges | Snapshot, message ID, part index, UTF-16 range | Exact unique source/quote only; version-pinned row-structure adapter, not stable host metadata API |
+| Repeated text / formatted ranges | Conservative refusal | Actual repeated beta refused; no first-match guessing, not full desktop range parity |
+| Optional local comments | Explicit Annotate selection command, optional dialog, commit/cancel | Real native-selection fixture and actual empty-comment host commit |
+| Pending sidebar stack | Scrollable numbered notes only | No source-copy picker/editor; actual two-note docked stack |
+| Review/edit/delete | Pending note dialogs, stable numbering | Real renderer fixtures; uncertain prepared batches remain frozen |
+| Explicit batch send | One confirmed normal message with source context | Admission/storage fixtures; real host confirmation canceled without sending |
+| Hide after successful send | Close only after validated admission + durable sent save | Renderer ordering/failure/race tests; no live model admission exercised |
+| Uncertain delivery | Stable prepared ID/text, retry identical batch | Admission mismatch, rejected/unknown outcome and failed sent-save/restart tests |
+| Existing saved notes | Same v1 key/schema, no destructive migration | JSON round-trip and prepared/sent-state fixtures |
+| Main composer | Draft not read/modified/submitted by annotations | Source and fixture checks; separate confirmed model submission |
+| Transcript markers | Native temporary selection only | No persistent numbered in-transcript markers or click-to-source restoration |
+| Sidebar on narrow terminals | Host fullscreen fallback | Prior prototype host fallback test; corrected layout fixtures, not newly retested live narrow |
+| Lightweight idle behavior | No timers/polling/model calls; selection listener cleaned up | 100 setup/cleanup cycles, no idle history reads; see PERFORMANCE.md |
 
-## Important remaining limitations
+## Remaining limits
 
-- This is a terminal **sidebar adaptation**, not one-to-one in-transcript desktop annotation parity.
-- Live host tests cover loading, real keys/focus, reopening/restart persistence and narrow-terminal fallback. Dynamic resize, plugin removal/reload, multi-process races, performance limits and actual model delivery remain unverified.
-- The host integration harness uses fixture data and storage callbacks. Passing it does not prove disk-failure atomicity or remote-server behavior.
-- The panel displays raw Markdown source. Tables, links and formatting are not rendered like the main transcript. Tabs/newlines use visible glyphs; stored quotes preserve original bytes/UTF-16 text.
-- Mouse dragging is not an annotation selection method. Use keyboard ranges. Clicking the composer count opens the panel and clicking the panel requests focus, but actual mouse routing remains unverified; keyboard focus return was exercised.
-- Sent batches are immutable. An uncertain or failed prepared batch must be retried; this version cannot discard a permanently rejected one. No transcript edit or delivery rollback is attempted.
-- Each note stores a source snapshot. Very large responses and many notes increase local storage and prompt token usage. Confirmation reports selected-source character count, not an exact model-token estimate. No truncation is performed.
-- Retention follows the host plugin store; there is no separate data-export/retention UI yet. Removing the plugin does not promise deletion of existing stored annotations.
-- Source-history display uses snapshots; it does not silently re-anchor to revised transcript text or force-fetch deleted historical messages.
-- OpenCode V1, desktop GUI, and unsupported V2 versions are not supported. Official platform binary availability must be confirmed before asking a user to upgrade.
+- Experimental OpenCode V2 2.0.32 only, not V1 or the desktop GUI. Unknown versions fail closed.
+- The host does not provide a stable semantic source-range bridge. Parent/row-ID conventions can change; grouped/unknown layouts are rejected. Other untrusted plugins are outside the adapter's trust boundary.
+- Original-highlight workflow is supported for unambiguous exact passages, not arbitrary repeated/Markdown/table/cross-message selections. Source snapshots are not live re-anchored.
+- The desktop reference uses message-scoped source offsets and exact anchor validation, also supports direct single-note submission and composer integration. This plugin deliberately provides the requested separate batch queue, not those additional modes.
+- Stable per-session numbering differs from the reference's array-index numbering.
+- No actual model delivery, end-to-end server deduplication, live filesystem failure, cross-process race, exhaustive dynamic resize or long-running host soak test was performed.
+- Legacy oversize prepared batches remain intact but are blocked by conservative payload caps; no discard/export/recovery UI is supplied. Sent history is retained, not pruned.
+- Previous release validation of the copied-source sidebar does not establish the corrected native-selection workflow. Current evidence is recorded separately in VALIDATION.md.

@@ -1,52 +1,52 @@
 # OpenCode Response Annotations
 
-> **Interaction gap:** this prototype selects a copy of response text inside the sidebar. The intended workflow is to highlight the original assistant response in the main transcript and keep only numbered comments in the sidebar. That requirement is not implemented here yet. Native transcript-selection support is under investigation; do not treat this release as meeting that requirement. Highlighting and comment editing are local UI operations, not model-powered.
+An experimental terminal plugin for **OpenCode V2 2.0.32**. Highlight the **original assistant response in the main transcript**, commit an optional comment locally, review numbered notes stacked in a sidebar, then explicitly send one batch. The sidebar is a notes queue, not a duplicate response editor. The main composer is untouched.
 
-A small **experimental OpenCode V2 terminal plugin**, not a fork or custom OpenCode build. Review assistant response text in a docked sidebar, select precise passages with the keyboard, save numbered highlights or comments, then explicitly send the whole batch. The main prompt draft is not read, overwritten, or submitted.
+This is a restricted implementation, **not full desktop annotation parity**. Native selection APIs expose rendered text, not stable source ranges. A version-pinned host-structure adapter and conservative exact-text checks accept only unambiguous selections. Repeated quotes, duplicate full responses, cross-message selections, unsupported structures and rendered text that does not match the source are rejected rather than guessed.
 
-**Readiness:** type checks, build, domain/renderer tests and an actual isolated OpenCode 2.0.32 host smoke test pass. Real keyboard selection, editing, cancel-send, disk persistence/restart, deletion and narrow-terminal fallback were exercised. Real model delivery, cross-process races and exhaustive lifecycle/performance tests remain unverified; this is not a claim of complete ChatGPT feature parity. See [PARITY.md](PARITY.md) for what is and is not established.
+## Requirements and installation
 
-## Requirements
+- Official V2 distribution `@opencode/cli@2.0.32`, with its CLI-plugin API. Legacy `opencode-ai` V1 is not this API.
+- Host-provided OpenTUI/Solid. Development uses OpenTUI 0.5.17 and Solid 1.9.12.
+- Docked panels need at least 108 columns in the inspected host. Narrow terminals use the host's fullscreen panel fallback.
 
-- OpenCode V2 with the CLI-plugin API tested against `@opencode/plugin@2.0.32`.
-- The official V2 distribution is `@opencode/cli@2.0.32`. The legacy `opencode-ai` package's `latest` was `1.19.3` when checked and is **not** this API. Do not assume an existing V1 install will load this plugin.
-- The host must provide OpenTUI and Solid, as supported by its plugin runtime. Development tests use OpenTUI 0.5.17, Solid 1.9.12, Bun 1.4.3 and TypeScript 5.9.3.
-- Docking needs at least **108 terminal columns** in the inspected host. Below that, OpenCode itself uses a fullscreen panel. `f` toggles presentation when space permits.
+Copy this package folder, including `tui.js`, `dist/` and `package.json`, into your project's `.opencode/plugins/response-annotations/`, then restart. That local discovery route is source-verified.
 
-## Local installation (no publishing or core build)
+Alternatively add the **absolute plugin directory** to your existing global V2 `cli.json` `plugins` array, preserving other settings. Usually this file is `$XDG_CONFIG_HOME/opencode/cli.json` or `~/.config/opencode/cli.json`. This global configuration route was tested in an isolated official host. Project `.opencode/cli.json` is not the global CLI configuration. Do not install this unpublished name from a package registry.
 
-The release folder contains the precompiled `dist/tui.js`, root `tui.js`, and `package.json`. There is no need to build OpenCode, install a browser extension, or change system permissions.
+No OpenCode fork/core build, browser extension, API key or separate model is needed for local annotation. Nothing has been installed on the user's computer.
 
-Copy that folder as a directory into your project's `.opencode/plugins/response-annotations/`, then restart the V2 CLI in that project. OpenCode's supported local-plugin discovery finds plugin directories there. Preserve both `tui.js` and `dist/`; the root entrypoint supports local-directory discovery, and the package's `./tui` export supports package loading.
+## Workflow
 
-Alternatively add the **absolute path to the plugin directory** to the existing `plugins` array in the V2 **global** `cli.json` (under its user config directory, normally `$XDG_CONFIG_HOME/opencode/cli.json` or `~/.config/opencode/cli.json`), preserving all other settings. This is a CLI-only plugin; use `cli.json`, not the server-only plugin list. Do not run `opencode plugin add` with this unpublished package name; that command expects a published registry or Git package.
+1. Mouse-drag a passage in a completed assistant response in the original transcript.
+2. Press **Ctrl+Shift+A**, or choose **Annotate selection** in the command palette. A local optional-comment dialog opens. No automatic popup steals focus on selection. Terminals that cannot encode that shortcut can use the palette.
+3. Enter a comment, or leave it empty for a highlight-only note. Enter commits; cancel saves nothing.
+4. The sidebar opens with numbered pending notes. Repeat the original-transcript selection to stack more. `/annotate` or **Review pending annotations** reopens the queue. The compact composer row reports the pending count without reading or changing its draft.
+5. Focus/click the sidebar and press **e** to select a note, edit its comment or remove it. Numbers are stable per session and deleted numbers are not reused. **Esc** closes the panel; **f** changes its presentation; **h** lists saved sent references.
+6. **Ctrl+S** opens the explicit **Send batch** confirmation. It reports note count and source-character context. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. It sends all pending notes in one ordinary message, including exact quotes, optional comments, source message/part indices, UTF-16 offsets and full selected/sibling text snapshots. Reasoning and tool internals are excluded.
+7. The sidebar hides **only after matching prompt admission is returned and sent state is durably saved**. This is admission, not proof the model has finished answering. Failure or uncertainty keeps the batch/notes available.
 
-Installation has not been performed on the user's computer. The global `cli.json` path with an absolute plugin directory was verified in an isolated live 2.0.32 host. Project `.opencode/cli.json` is not the global CLI configuration and was not loaded in that test. The alternate local-directory discovery route remains source-verified, not independently smoke-tested.
+The main composer's unsent text, attachments and uncommitted model/agent selections are not merged into this separate batch. No model call occurs while highlighting, commenting, editing or deleting.
 
-## Use
+## Selection limits and source provenance
 
-1. Open an existing conversation, enter `/annotate` or choose **Annotate assistant response** from the command palette.
-2. Press `r` to choose a **completed** assistant text part. The sidebar displays raw Markdown source, not the rendered transcript. The original conversation remains visible on a wide terminal.
-3. Arrow keys move the source cursor. `Shift` + arrows extend an exact passage selection. `Ctrl+Home/End` goes to the start/end; add Shift to extend. Grapheme clusters such as emoji and combining characters stay intact.
-4. `a` saves a highlight without a comment; `n` opens an optional comment prompt. Canceling it saves nothing. Save as many notes as needed. Notes have stable per-session numbers; deleted numbers are not reused.
-5. `e` opens pending notes, including view, edit-comment and remove actions. Existing ranges are underlined; `[N]` marks their start. Several notes at the same start display `[first+count]`; the full list retains every number.
-6. `Ctrl+S` asks before sending. Cancel keeps notes editable. Send uses this session's configured agent/model and can incur token usage. It includes exact quotes, source message/part IDs, offsets, full selected-text snapshots and all sibling assistant text parts. Reasoning/tool internals are not included. The payload is visible as a normal message, not hidden context.
-7. `h` opens sent references and returns to their saved passage snapshots. `Esc` closes the sidebar.
+The plugin captures the public OpenTUI selection at mouse release, before the host clears it for command/dialog keys. It accepts one enclosing `MarkdownRenderable`, requires a completed assistant text snapshot and a unique exact quote, and validates again before commit. Pending notes retain their original snapshots if the transcript later changes; they are not silently re-anchored.
 
-The compact composer row reports pending notes. It does **not** merge notes with the main composer's unsent text, selected-but-uncommitted agent/model, attachments, or instructions. Send annotations independently after reviewing them.
+OpenCode 2.0.32 does **not** expose a supported selection-to-message/source-offset bridge. This adapter additionally checks the publicly readable parent chain against the inspected host's internal row-ID conventions. Those conventions are **version-coupled implementation details, not a stable public metadata contract**. Unknown host versions/structures fail closed. It does not patch private APIs or edit host core. It is not a security boundary against another malicious plugin impersonating host nodes.
 
-## Durability and send safety
+Selections containing removed Markdown syntax, altered whitespace/table layout, repeated text, duplicate source snapshots, multiple parts/messages, unfinished responses or reverted sessions can be refused. There are no persistent numbered decorations or clickable saved-range overlays in the original transcript. Original selection works for supported unambiguous passages; exact arbitrary rendered-range parity needs a host source-range API.
 
-- Uses the host's durable, instance-synchronized JSON plugin store, not a private global DOM or unsupported transcript hooks.
-- Anchors retain session, message, text-part index, source snapshot and UTF-16 offsets. Duplicate phrases cannot be confused. Changed original text does not silently move a saved note.
-- Pending notes remain until prompt admission succeeds and the local success record persists. A prepared batch gets a stable message ID **before** submission. Retrying an uncertain response reuses that ID; V2 admission's idempotency prevents duplicate admission.
-- A prepared/uncertain batch is frozen against comment edits/removal. Retry the same batch to reconcile it. This conservative version has no discard/recovery UI for a permanently rejected prepared batch; see limitations before relying on it.
-- Reentrant commands are locked while dialogs/writes/submission are active. A session switch clears the source selection; asynchronous dialog results from another session are discarded. A changed note set during confirmation requires another review. Reverted sessions are blocked.
-- Source selection is cached by response, so cursor movement does not re-segment the entire response each time. Only a small source viewport is rendered.
+## Durability and safety
+
+- Same `annotations-v1` storage key/schema as the earlier prototype: existing pending notes and uncertain/sent batches are retained without migration or deletion.
+- Host durable JSON storage writes atomically before updating live state. A prepared batch is saved with a stable ID before admission. Unknown-outcome retries reuse the identical ID and payload; the inspected V2 admission API is idempotent.
+- Prepared batches are frozen against edit/removal. This version has no discard or manual reconciliation UI. Never delete an uncertain batch just to retry under a new ID.
+- Failed prepared-state writes prevent sending; failed sent-state writes retain the retry batch and do not hide the sidebar. Returned admission ID/session/type are checked.
+- Dialog/session-change guards and cleanup prevent stale dialogs from editing another session or closing a replacement panel. Concurrent note changes during confirmation require another review.
+- Conservative size limits refuse without truncating or pruning data: selected part 100,000 characters; selected response text parts 250,000 total; comment 20,000; 100 pending notes; batch 1 MB; store 8 MB. Selection scans also cap nodes/depth/history. See [PERFORMANCE.md](PERFORMANCE.md).
+- Oversized legacy prepared batches remain stored unchanged but cannot be sent under the new payload cap. There is no in-plugin export/recovery UI yet; manually preserve/review the store before any recovery. Do not rely on the plugin for unlimited annotation archives.
 
 ## Development and verification
-
-Install dependencies in this plugin directory, never the OpenCode checkout:
 
 ```sh
 npm ci
@@ -54,12 +54,9 @@ npm test
 npm run typecheck
 npm run test:panel
 npm run build
+npm run benchmark
 ```
 
-`npm test` runs Node's dependency-free domain tests; `test:panel` runs Bun with the OpenTUI Solid preload. The latter renders the real component against fixture host APIs and invokes registered commands. It is **not** a substitute for host, mouse or remote-server testing. Separate live-host checks are recorded in [VALIDATION.md](VALIDATION.md).
+Tests include the real OpenTUI renderer with fixture host APIs, actual native Selection objects, local commits, queue editing, durable-failure simulations and admission uncertainty. See [VALIDATION.md](VALIDATION.md) for actual isolated-host mouse/keyboard/restart results and what remains untested. [PARITY.md](PARITY.md) distinguishes implemented behavior from limitations; [REFERENCE-BEHAVIOR.md](REFERENCE-BEHAVIOR.md) records independently inspected reference behavior.
 
-No GitHub Actions, model/API calls, login flow, package publishing or user-machine installation is part of these tests.
-
-## Provenance
-
-Original plugin implementation. Public API shape was checked against official OpenCode source commit `594af423e8676b8458d6ef125ddde6766afad392`, the published 2.0.32 plugin typings, and [official CLI plugin documentation](https://opencode.ai/v2/docs/build/plugins/cli/). The existing source checkout was read-only; no OpenCode core patch is needed. Dependencies retain their respective licenses. This plugin is MIT-licensed.
+Original MIT-licensed implementation. Official API/source inspected at commit `594af423e8676b8458d6ef125ddde6766afad392` and published 2.0.32 typings: [CLI plugin documentation](https://opencode.ai/v2/docs/build/plugins/cli/). No proprietary reference application code/assets are included.

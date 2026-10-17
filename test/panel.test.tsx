@@ -1,56 +1,85 @@
 import { test, expect } from 'bun:test'
-import { testRender } from '@opentui/solid'
-import { createStore, produce } from 'solid-js/store'
-import type { Context, PanelInput } from '@opencode/plugin/tui/context'
-import { AnnotationPanel } from '../src/tui.tsx'
-import { initialState } from '../src/model.ts'
+import { fixtureState, harness, deferred, admitted } from './panel-harness.tsx'
+import { addNote } from '../src/model.ts'
 
-test('real renderer: select ranges, save/edit/remove, cancel and retry batch, keep references', async () => {
-  const [state, setState] = createStore(initialState())
-  let commands: Array<{bind?:string;run:()=>unknown}> = []
-  let select: (options: Array<{value:unknown}>) => unknown = options => options[0].value
-  let comment: string | undefined = 'Please explain'
-  let confirm = false
-  let confirmHook = () => {}
-  let reject = false
-  const calls: Array<{id:string;text:string;sessionID:string}> = []
-  const context = {
-    theme: {text:{base:'#ffffff',muted:'#aaaaaa'}},
-    keymap: {layer: (factory:()=>{commands:typeof commands}) => {commands=factory().commands}},
-    data:{session:{get:()=>({}),message:{sync:async()=>{},list:()=>[
-      {id:'msg_original',type:'assistant',time:{completed:1},content:[{type:'text',text:'alpha beta alpha\n👨‍👩‍👧 second line'}]},
-    ]}}},
-    ui:{toast:{show:()=>{}},dialog:{select:async(o:{options:Array<{value:unknown}>})=>select(o.options),prompt:async()=>comment,confirm:async()=>{confirmHook();return confirm}}},
-    client:{session:{prompt:async(input:typeof calls[number])=>{calls.push(input);if(reject)throw new Error('connection lost');return {data:{id:input.id}}}}},
-  } as unknown as Context
-  const [panel,setPanel] = createStore({name:'response-annotations.review',sessionID:'session-a',width:60,presentation:'panel' as const,focused:true,focus:()=>{},close:()=>{},toggleFullscreen:()=>{}})
-  const screen=await testRender(()=> <AnnotationPanel context={context} panel={panel} state={state} update={async fn=>{setState(produce(fn))}}/>,{width:60,height:30})
-  async function key(bind:string) { const cmd=commands.find(c=>c.bind===bind);if(!cmd)throw new Error(`No ${bind}`);cmd.run();await screen.flush() }
+test('real renderer: sidebar is a numbered note-only queue, not a source selector', async () => {
+  const h = await harness(fixtureState(5))
   try {
-    await key('r');await screen.waitForFrame(f=>f.includes('alpha beta alpha'))
-    for(let i=0;i<5;i++)await key('shift+right')
-    await key('n');await screen.waitFor(()=>state.notes.length===1)
-    expect(state.notes[0].quote).toBe('alpha');expect(state.notes[0].comment).toBe('Please explain')
-    expect(screen.captureCharFrame()).toContain('[1]alpha')
-    await key('ctrl+s');await screen.flush();expect(calls.length).toBe(0);expect(state.batches.length).toBe(0)
-    select=options=>options.some(o=>o.value==='edit')?'edit':options[0].value;comment='Revised'
-    await key('e');await screen.waitFor(()=>state.notes[0].comment==='Revised')
-    confirm=true;reject=true;await key('ctrl+s');await screen.waitFor(()=>calls.length===1)
-    await screen.waitForFrame(f=>f.includes('connection lost'));expect(state.notes.length).toBe(1)
-    reject=false;await key('ctrl+s');await screen.waitFor(()=>state.notes.length===0)
-    expect(calls[0].id).toBe(calls[1].id);expect(calls[0].text).toContain('second line');expect(calls[0].sessionID).toBe('session-a')
-    await key('h');await screen.waitForFrame(f=>f.includes('Sent reference #1'))
-    expect(state.batches[0].status).toBe('sent')
-    await key('r');await key('shift+right');await key('a');await screen.waitFor(()=>state.notes.length===1)
-    select=options=>options.some(o=>o.value==='remove')?'remove':options[0].value
-    await key('e');await screen.waitFor(()=>state.notes.length===0)
-    await key('r');await key('shift+right');await key('a');await screen.waitFor(()=>state.notes.length===1)
-    confirmHook=()=>setState(produce(d=>{d.notes[0].comment='Changed in another window'}))
-    await key('ctrl+s');await screen.waitForFrame(f=>f.includes('Annotations changed'))
-    expect(calls.length).toBe(2);expect(state.batches.length).toBe(1)
-    setPanel('sessionID','session-b');await screen.flush()
-    expect(screen.captureCharFrame()).not.toContain('msg_original')
-    await key('shift+right');await key('a');await screen.waitForFrame(f=>f.includes('Choose a response first'))
-    expect(state.notes[0].source.sessionID).toBe('session-a')
-  } catch(error) { console.log(screen.captureCharFrame()); console.log(JSON.stringify(state)); throw error } finally {screen.renderer.destroy()}
+    await h.screen.waitForFrame(f => f.includes('#5'))
+    const frame = h.screen.captureCharFrame()
+    expect(frame).toContain('Pending annotations · 5')
+    for (let i = 1; i <= 5; i++) expect(frame).toContain(`#${i}`)
+    expect(frame).toContain('(highlight only)')
+    expect(frame).toContain('alpha')
+    expect(frame).not.toContain('UNSELECTED_SOURCE_CONTEXT')
+    expect(frame).not.toContain('SIBLING_SOURCE_CONTEXT')
+    expect(frame).not.toContain('Choose assistant response')
+    for (const oldBinding of ['r', 'a', 'n', 'shift+right', 'ctrl+end']) expect(h.bindings()).not.toContain(oldBinding)
+    expect(h.controls.calls).toHaveLength(0)
+  } finally { h.destroy() }
+})
+
+test('real renderer: edit/delete persist, stable numbers and exact snapshots survive restart', async () => {
+  const h = await harness(fixtureState(2))
+  let restored: ReturnType<typeof fixtureState>
+  try {
+    h.controls.select = async options => options.some(o => o.value === 'edit') ? 'edit' : options[0].value
+    h.controls.comment = async () => 'Revised explanation'
+    await h.key('e')
+    await h.screen.waitFor(() => h.state.notes[0].comment === 'Revised explanation')
+    await h.screen.waitForFrame(f => f.includes('Revised explanation'))
+    h.controls.select = async options => options.some(o => o.value === 'remove') ? 'remove' : options[1].value
+    await h.key('e')
+    await h.screen.waitFor(() => h.state.notes.length === 1)
+    expect(h.state.notes[0].number).toBe(1)
+    expect(h.controls.calls).toHaveLength(0)
+    expect(h.controls.closes).toBe(0)
+    restored = h.persisted()
+  } finally { h.destroy() }
+  const r = await harness(restored!)
+  try {
+    await r.screen.waitForFrame(f => f.includes('Revised explanation'))
+    expect(r.state.notes[0].source.responseParts?.[0].text).toBe('SIBLING_SOURCE_CONTEXT')
+    await r.update(d => { addNote(d, d.notes[0].source, 6, 10, 'After restart', 'new-note') })
+    expect(r.state.notes[1].number).toBe(3)
+    expect(r.state.notes[0].quote).toBe('alpha')
+  } finally { r.destroy() }
+})
+
+test('real renderer: successful Send closes only after admission and durable sent save', async () => {
+  const h = await harness(fixtureState(2))
+  const admission = deferred<unknown>(); const save = deferred<void>()
+  try {
+    h.controls.prompt = () => admission.promise
+    h.controls.beforeUpdate = ordinal => ordinal === 2 ? save.promise : Promise.resolve()
+    await h.key('ctrl+s')
+    await h.screen.waitFor(() => h.controls.calls.length === 1)
+    expect(h.controls.closes).toBe(0)
+    expect(h.persisted().batches[0].status).toBe('prepared')
+    const input = h.controls.calls[0]
+    expect(input.sessionID).toBe('a'); expect(input.delivery).toBe('queue')
+    expect(input.metadata).toEqual({ annotationBatch: input.id })
+    expect(input.text).toContain('UNSELECTED_SOURCE_CONTEXT')
+    expect(input.text).toContain('SIBLING_SOURCE_CONTEXT')
+    admission.resolve(admitted(input))
+    await h.screen.waitFor(() => h.controls.updates === 2)
+    expect(h.controls.closes).toBe(0); expect(h.state.notes).toHaveLength(2)
+    save.resolve()
+    await h.screen.waitFor(() => h.controls.closes === 1)
+    expect(h.persisted().notes).toHaveLength(0)
+    expect(h.persisted().batches[0].status).toBe('sent')
+    expect(h.controls.events).toEqual(['saved:1', 'prompt', 'saved:2', 'close'])
+    await h.key('h'); await h.screen.waitForFrame(f => f.includes('Sent reference #1'))
+  } finally { admission.resolve(undefined); save.resolve(); h.destroy() }
+})
+
+test('real renderer: cancel keeps queue, no admission, persistence or automatic close', async () => {
+  const h = await harness()
+  try {
+    h.controls.confirm = async () => false
+    await h.key('ctrl+s')
+    expect(h.controls.calls).toHaveLength(0); expect(h.controls.updates).toBe(0)
+    expect(h.controls.closes).toBe(0); expect(h.state.notes).toHaveLength(1)
+    await h.key('escape'); expect(h.controls.closes).toBe(1)
+  } finally { h.destroy() }
 })

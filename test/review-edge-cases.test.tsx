@@ -1,59 +1,244 @@
 import { test, expect } from 'bun:test'
-import { testRender } from '@opentui/solid'
-import { createStore, produce } from 'solid-js/store'
-import type { Context, PanelInput } from '@opencode/plugin/tui/context'
-import { AnnotationPanel } from '../src/tui.tsx'
-import { initialState, addNote, editNote } from '../src/model.ts'
+import { deferred, harness, fixtureState, admitted } from './panel-harness.tsx'
+import { addNote, editNote } from '../src/model.ts'
 
-const deferred = <T,>() => { let resolve!: (value:T)=>void; const promise=new Promise<T>(r=>resolve=r); return {promise,resolve} }
-async function harness() {
-  const [state,setState]=createStore(initialState())
-  const [panel,setPanel]=createStore({name:'response-annotations.review',sessionID:'a',width:60,presentation:'panel',focused:true,focus:()=>{},close:()=>{},toggleFullscreen:()=>{}} as { -readonly [K in keyof PanelInput]: PanelInput[K] })
-  let commands: Array<{bind?:string;run:()=>unknown}>=[]
-  const controls={ confirm: async()=>true, comment: async()=>'', reverted:false, confirms:0, failUpdates:0, failMarkSent:false, source:'alpha beta\n👨‍👩‍👧 é end', calls:[] as Array<{sessionID:string,id:string,text:string}>, errors:[] as string[] }
-  const context={
-    theme:{text:{base:'#ffffff',muted:'#aaaaaa'}},
-    keymap:{layer:(factory:()=>{commands:typeof commands})=>{commands=factory().commands}},
-    data:{session:{get:()=>({revert:controls.reverted?{}:undefined}),message:{sync:async()=>{},list:()=>[
-      {id:'msg_source',type:'assistant',time:{completed:1},content:[{type:'text',text:controls.source}]},
-      {id:'msg_streaming',type:'assistant',time:{},content:[{type:'text',text:'incomplete'}]},
-    ]}}},
-    ui:{toast:{show:(x:{message:string})=>controls.errors.push(x.message)},dialog:{select:async(o:{options:Array<{value:unknown}>})=>o.options[0].value,prompt:()=>controls.comment(),confirm:()=>{controls.confirms++;return controls.confirm()}}},
-    client:{session:{prompt:async(input:typeof controls.calls[number])=>{controls.calls.push(input);if(controls.failMarkSent)controls.failUpdates++;return {id:input.id}}}},
-  } as unknown as Context
-  const update=async(fn:Parameters<typeof produce<typeof state>>[0])=>{if(controls.failUpdates>0){controls.failUpdates--;throw new Error('durable store unavailable')}setState(produce(fn))}
-  const screen=await testRender(()=> <AnnotationPanel context={context} panel={panel} state={state} update={update}/>,{width:60,height:30})
-  async function key(bind:string){const cmd=commands.find(c=>c.bind===bind);if(!cmd)throw new Error(bind);cmd.run();await screen.flush()}
-  async function seed(){await key('r');await screen.waitForFrame(f=>f.includes('alpha beta'));for(let i=0;i<5;i++)await key('shift+right');await key('a');await screen.waitFor(()=>state.notes.length===1)}
-  return {state,setState,panel,setPanel,screen,controls,key,seed}
+// All admissions are mocked. These verify component ordering/retention, not a live model.
+test('review: repeated send during confirmation admits only one batch', async () => {
+  const h = await harness(); const gate = deferred<boolean>()
+  try {
+    h.controls.confirm = () => gate.promise
+    await h.key('ctrl+s'); await h.key('ctrl+s')
+    expect(h.controls.confirms).toBe(1)
+    gate.resolve(true); await h.screen.waitFor(() => h.controls.closes === 1)
+    expect(h.controls.calls).toHaveLength(1)
+  } finally { gate.resolve(false); h.destroy() }
+})
+
+test('review: session switch during confirmation cancels stale send', async () => {
+  const h = await harness(); const gate = deferred<boolean>()
+  try {
+    h.controls.confirm = () => gate.promise
+    await h.key('ctrl+s'); h.setPanel('sessionID', 'b'); await h.screen.flush()
+    gate.resolve(true); await h.screen.flush()
+    expect(h.controls.calls).toHaveLength(0); expect(h.state.batches).toHaveLength(0)
+    expect(h.state.notes[0].source.sessionID).toBe('a'); expect(h.controls.closes).toBe(0)
+    expect(h.screen.captureCharFrame()).not.toContain('msg_source')
+  } finally { gate.resolve(false); h.destroy() }
+})
+
+test('review: session switch during edit prompt prevents stale edit', async () => {
+  const h = await harness(); const gate = deferred<string>()
+  try {
+    h.controls.select = async options => options.some(o => o.value === 'edit') ? 'edit' : options[0].value
+    let editing = false
+    h.controls.comment = () => { editing = true; return gate.promise }
+    await h.key('e'); await h.screen.waitFor(() => editing)
+    h.setPanel('sessionID', 'b'); await h.screen.flush()
+    gate.resolve('stale edit'); await h.screen.flush()
+    expect(h.state.notes[0].comment).toBe(''); expect(h.controls.updates).toBe(0)
+  } finally { gate.resolve(''); h.destroy() }
+})
+
+test('review: session switch during action dialog prevents stale delete', async () => {
+  const h = await harness(); const gate = deferred<unknown>()
+  try {
+    let managing = false
+    h.controls.select = async options => {
+      if (options.some(o => o.value === 'remove')) { managing = true; return gate.promise }
+      return options[0].value
+    }
+    await h.key('e'); await h.screen.waitFor(() => managing)
+    h.setPanel('sessionID', 'b'); await h.screen.flush()
+    gate.resolve('remove'); await h.screen.flush()
+    expect(h.state.notes).toHaveLength(1); expect(h.controls.updates).toBe(0)
+  } finally { gate.resolve(undefined); h.destroy() }
+})
+
+test('review: concurrent note edit invalidates confirmation', async () => {
+  const h = await harness(); const gate = deferred<boolean>()
+  try {
+    h.controls.confirm = () => gate.promise; await h.key('ctrl+s')
+    await h.update(d => editNote(d, d.notes[0].id, 'changed elsewhere'))
+    gate.resolve(true)
+    await h.screen.waitFor(() => h.controls.errors.some(x => x.includes('changed during confirmation')))
+    expect(h.controls.calls).toHaveLength(0); expect(h.state.batches).toHaveLength(0); expect(h.controls.closes).toBe(0)
+  } finally { gate.resolve(false); h.destroy() }
+})
+
+test('review: new revert during confirmation blocks admission', async () => {
+  const h = await harness(); const gate = deferred<boolean>()
+  try {
+    h.controls.confirm = () => gate.promise; await h.key('ctrl+s')
+    h.controls.reverted = true; gate.resolve(true)
+    await h.screen.waitFor(() => h.controls.errors.some(x => x.includes('revert changed')))
+    expect(h.controls.calls).toHaveLength(0); expect(h.controls.closes).toBe(0)
+  } finally { gate.resolve(false); h.destroy() }
+})
+
+test('review: failed prepared-state persistence never admits and keeps queue open', async () => {
+  const h = await harness()
+  try {
+    h.controls.beforeUpdate = async () => { throw new Error('durable store unavailable') }
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.errors.includes('durable store unavailable'))
+    expect(h.controls.calls).toHaveLength(0); expect(h.state.notes).toHaveLength(1)
+    expect(h.persisted().notes).toHaveLength(1); expect(h.state.batches).toHaveLength(0); expect(h.controls.closes).toBe(0)
+  } finally { h.destroy() }
+})
+
+test('review: rejected admission retains durable prepared batch and retries exact ID/text', async () => {
+  const h = await harness()
+  try {
+    h.controls.prompt = async () => { throw new Error('connection lost: admission outcome unknown') }
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.errors.length === 1)
+    expect(h.state.notes).toHaveLength(1); expect(h.persisted().batches[0].status).toBe('prepared')
+    expect(h.controls.closes).toBe(0)
+    h.controls.prompt = async input => admitted(input)
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.closes === 1)
+    expect(h.controls.calls).toHaveLength(2)
+    expect(h.controls.calls[1]).toEqual(h.controls.calls[0])
+  } finally { h.destroy() }
+})
+
+for (const mismatch of ['id', 'sessionID', 'type', 'undefined'] as const) {
+  test(`review: ${mismatch} admission mismatch never clears queue or closes`, async () => {
+    const h = await harness()
+    try {
+      h.controls.prompt = async input => mismatch === 'undefined' ? undefined : { ...admitted(input), [mismatch]: 'wrong' }
+      await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.errors.length === 1)
+      expect(h.controls.calls).toHaveLength(1); expect(h.controls.closes).toBe(0)
+      expect(h.state.notes).toHaveLength(1); expect(h.persisted().batches[0].status).toBe('prepared')
+    } finally { h.destroy() }
+  })
 }
 
-test('review: repeated send during confirmation admits only one batch',async()=>{
-  const h=await harness();try{await h.seed();const gate=deferred<boolean>();h.controls.confirm=()=>gate.promise;await h.key('ctrl+s');await h.key('ctrl+s');expect(h.controls.confirms).toBe(1);gate.resolve(true);await h.screen.waitFor(()=>h.state.batches[0]?.status==='sent');expect(h.controls.calls.length).toBe(1)}finally{h.screen.renderer.destroy()}
-})
-test('review: session switch during confirmation cancels stale send',async()=>{
-  const h=await harness();try{await h.seed();const gate=deferred<boolean>();h.controls.confirm=()=>gate.promise;await h.key('ctrl+s');h.setPanel('sessionID','b');await h.screen.flush();gate.resolve(true);await h.screen.flush();expect(h.controls.calls.length).toBe(0);expect(h.state.notes[0].source.sessionID).toBe('a');expect(h.state.batches.length).toBe(0)}finally{h.screen.renderer.destroy()}
-})
-test('review: session switch during comment prevents cross-session save',async()=>{
-  const h=await harness();try{await h.key('r');await h.screen.waitForFrame(f=>f.includes('alpha beta'));await h.key('shift+right');const gate=deferred<string>();h.controls.comment=()=>gate.promise;await h.key('n');h.setPanel('sessionID','b');await h.screen.flush();gate.resolve('stale comment');await h.screen.flush();expect(h.state.notes.length).toBe(0);await h.key('a');await h.screen.waitFor(()=>h.controls.errors.includes('Choose a response first'))}finally{h.screen.renderer.destroy()}
-})
-test('review: concurrent note edit invalidates confirmation',async()=>{
-  const h=await harness();try{await h.seed();const gate=deferred<boolean>();h.controls.confirm=()=>gate.promise;await h.key('ctrl+s');h.setState(produce(s=>editNote(s,s.notes[0].id,'changed elsewhere')));gate.resolve(true);await h.screen.waitFor(()=>h.controls.errors.some(x=>x.includes('changed during confirmation')));expect(h.controls.calls.length).toBe(0);expect(h.state.batches.length).toBe(0)}finally{h.screen.renderer.destroy()}
-})
-test('review: new revert during confirmation blocks prompt',async()=>{
-  const h=await harness();try{await h.seed();const gate=deferred<boolean>();h.controls.confirm=()=>gate.promise;await h.key('ctrl+s');h.controls.reverted=true;gate.resolve(true);await h.screen.waitFor(()=>h.controls.errors.some(x=>x.includes('revert changed')));expect(h.controls.calls.length).toBe(0)}finally{h.screen.renderer.destroy()}
-})
-test('review: selected source retains original snapshot after source drift',async()=>{
-  const h=await harness();try{await h.seed();h.controls.source='replaced response';await h.key('ctrl+s');await h.screen.waitFor(()=>h.controls.calls.length===1);expect(h.controls.calls[0].text).toContain('alpha beta');expect(h.controls.calls[0].text).not.toContain('replaced response');expect(h.controls.calls[0].text).not.toContain('incomplete')}finally{h.screen.renderer.destroy()}
-})
-
-test('review: failed prepared-state persistence never calls model',async()=>{
-  const h=await harness();try{await h.seed();h.controls.failUpdates=1;await h.key('ctrl+s');await h.screen.waitFor(()=>h.controls.errors.includes('durable store unavailable'));expect(h.controls.calls.length).toBe(0);expect(h.state.notes.length).toBe(1);expect(h.state.batches.length).toBe(0)}finally{h.screen.renderer.destroy()}
-})
-test('review: accepted prompt with failed sent persistence retries identical ID and text',async()=>{
-  const h=await harness();try{await h.seed();h.controls.failMarkSent=true;await h.key('ctrl+s');await h.screen.waitFor(()=>h.controls.errors.includes('durable store unavailable'));expect(h.controls.calls.length).toBe(1);expect(h.state.notes.length).toBe(1);expect(h.state.batches[0].status).toBe('prepared');h.controls.failMarkSent=false;await h.key('ctrl+s');await h.screen.waitFor(()=>h.state.batches[0].status==='sent');expect(h.controls.calls[0].id).toBe(h.controls.calls[1].id);expect(h.controls.calls[0].text).toBe(h.controls.calls[1].text);expect(h.state.notes.length).toBe(0)}finally{h.screen.renderer.destroy()}
+test('review: accepted prompt with failed sent persistence survives restart and retries identical ID/text', async () => {
+  const h = await harness()
+  let restored = fixtureState(); let first: typeof h.controls.calls[number] | undefined
+  try {
+    h.controls.beforeUpdate = async ordinal => { if (ordinal === 2) throw new Error('durable store unavailable') }
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.errors.includes('durable store unavailable'))
+    expect(h.controls.calls).toHaveLength(1); expect(h.state.notes).toHaveLength(1)
+    expect(h.controls.closes).toBe(0); expect(h.state.batches[0].status).toBe('prepared')
+    restored = h.persisted(); first = h.controls.calls[0]
+  } finally { h.destroy() }
+  const r = await harness(restored)
+  try {
+    await r.screen.waitForFrame(f => f.includes('#1'))
+    await r.key('ctrl+s'); await r.screen.waitFor(() => r.controls.closes === 1)
+    expect(r.controls.calls[0]).toEqual(first)
+    expect(r.persisted().batches[0].status).toBe('sent'); expect(r.state.notes).toHaveLength(0)
+  } finally { r.destroy() }
 })
 
-test('review: down from long line lands on shorter next line, not following line',async()=>{
-  const h=await harness();try{h.controls.source='abc\nx\nz';await h.key('r');await h.screen.waitForFrame(f=>f.includes('abc'));await h.key('right');await h.key('right');await h.key('right');await h.key('down');expect(h.screen.captureCharFrame()).toContain('cursor 5 · row 2/3')}finally{h.screen.renderer.destroy()}
+test('review: successful in-flight send cannot close a different session panel', async () => {
+  const h = await harness(); const gate = deferred<unknown>()
+  try {
+    h.controls.prompt = () => gate.promise
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.calls.length === 1)
+    h.setPanel('sessionID', 'b'); await h.screen.flush()
+    gate.resolve(admitted(h.controls.calls[0]))
+    await h.screen.waitFor(() => h.state.batches[0].status === 'sent')
+    expect(h.controls.closes).toBe(0); expect(h.state.notes).toHaveLength(0)
+  } finally { gate.resolve(undefined); h.destroy() }
 })
+
+test('review: new notes and other-session notes survive successful batch', async () => {
+  const h = await harness(); const gate = deferred<unknown>()
+  try {
+    h.controls.prompt = () => gate.promise
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.calls.length === 1)
+    await h.update(d => {
+      const source = d.notes[0].source
+      addNote(d, source, 6, 10, 'new while sending', 'new')
+      addNote(d, { ...source, sessionID: 'b' }, 0, 5, 'other session', 'other')
+    })
+    gate.resolve(admitted(h.controls.calls[0])); await h.screen.waitFor(() => h.controls.closes === 1)
+    expect(h.state.notes.map(n => n.id)).toEqual(['new', 'other'])
+    expect(h.state.batches[0].notes).toHaveLength(1)
+  } finally { gate.resolve(undefined); h.destroy() }
+})
+
+test('review: leaving and returning to same session invalidates stale confirmation', async () => {
+  const h = await harness(); const gate = deferred<boolean>()
+  try {
+    h.controls.confirm = () => gate.promise; await h.key('ctrl+s')
+    h.setPanel('sessionID', 'b'); await h.screen.flush()
+    h.setPanel('sessionID', 'a'); await h.screen.flush()
+    gate.resolve(true); await h.screen.flush()
+    expect(h.controls.calls).toHaveLength(0); expect(h.controls.closes).toBe(0)
+    expect(h.state.notes).toHaveLength(1)
+  } finally { gate.resolve(false); h.destroy() }
+})
+
+test('review: leaving and returning to same session invalidates stale edit dialog', async () => {
+  const h = await harness(); const gate = deferred<string>()
+  try {
+    let editing = false
+    h.controls.select = async options => options.some(o => o.value === 'edit') ? 'edit' : options[0].value
+    h.controls.comment = () => { editing = true; return gate.promise }
+    await h.key('e'); await h.screen.waitFor(() => editing)
+    h.setPanel('sessionID', 'b'); await h.screen.flush()
+    h.setPanel('sessionID', 'a'); await h.screen.flush()
+    gate.resolve('stale edit'); await h.screen.flush()
+    expect(h.state.notes[0].comment).toBe(''); expect(h.controls.updates).toBe(0)
+  } finally { gate.resolve(''); h.destroy() }
+})
+
+test('review: late admission cannot close a replacement panel for the same session', async () => {
+  const h = await harness(); const gate = deferred<unknown>()
+  try {
+    h.controls.prompt = () => gate.promise
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.calls.length === 1)
+    let replacementCloses = 0
+    h.setPanel('close', () => () => { replacementCloses++ })
+    gate.resolve(admitted(h.controls.calls[0]))
+    await h.screen.waitFor(() => h.state.batches[0].status === 'sent')
+    expect(replacementCloses).toBe(0); expect(h.controls.closes).toBe(0)
+  } finally { gate.resolve(undefined); h.destroy() }
+})
+
+for (const action of ['edit', 'remove'] as const) {
+  test(`review: failed ${action} persistence retains original queue`, async () => {
+    const h = await harness()
+    try {
+      h.controls.select = async options => options.some(o => o.value === action) ? action : options[0].value
+      h.controls.comment = async () => 'must not persist'
+      h.controls.beforeUpdate = async () => { throw new Error('write rejected') }
+      await h.key('e'); await h.screen.waitFor(() => h.controls.errors.includes('write rejected'))
+      expect(h.state.notes).toHaveLength(1); expect(h.state.notes[0].comment).toBe('')
+      expect(h.persisted().notes[0].comment).toBe(''); expect(h.controls.closes).toBe(0)
+      expect(h.controls.calls).toHaveLength(0)
+    } finally { h.destroy() }
+  })
+}
+
+test('review: uncertain prepared batch locks editing without losing retry payload', async () => {
+  const h = await harness()
+  try {
+    h.controls.prompt = async () => { throw new Error('network uncertain') }
+    await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.errors.includes('network uncertain'))
+    const prepared = JSON.stringify(h.persisted().batches[0])
+    h.controls.select = async options => options.some(o => o.value === 'edit') ? 'edit' : options[0].value
+    h.controls.comment = async () => 'must not change admitted batch'
+    await h.key('e'); await h.screen.waitFor(() => h.controls.errors.some(x => x.includes('prepared batch before editing')))
+    expect(h.state.notes[0].comment).toBe('')
+    expect(JSON.stringify(h.persisted().batches[0])).toBe(prepared)
+    expect(h.controls.calls).toHaveLength(1); expect(h.controls.closes).toBe(0)
+  } finally { h.destroy() }
+})
+
+for (const change of ['session', 'revert'] as const) {
+  test(`review: ${change} change while prepare saves blocks admission and preserves retry`, async () => {
+    const h = await harness(); const gate = deferred<void>()
+    try {
+      h.controls.beforeUpdate = ordinal => ordinal === 1 ? gate.promise : Promise.resolve()
+      await h.key('ctrl+s'); await h.screen.waitFor(() => h.controls.updates === 1)
+      if (change === 'session') { h.setPanel('sessionID', 'b'); await h.screen.flush() }
+      else h.controls.reverted = true
+      gate.resolve(); await h.screen.waitFor(() => h.state.batches.length === 1)
+      await h.screen.flush()
+      expect(h.controls.calls).toHaveLength(0); expect(h.controls.closes).toBe(0)
+      expect(h.persisted().batches[0].status).toBe('prepared'); expect(h.persisted().notes).toHaveLength(1)
+    } finally { gate.resolve(); h.destroy() }
+  })
+}
