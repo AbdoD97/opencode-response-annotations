@@ -1,5 +1,7 @@
 # OpenCode Response Annotations
 
+> **Interaction gap:** this prototype selects a copy of response text inside the sidebar. The intended workflow is to highlight the original assistant response in the main transcript and keep only numbered comments in the sidebar. That requirement is not implemented here yet. Native transcript-selection support is under investigation; do not treat this release as meeting that requirement. Highlighting and comment editing are local UI operations, not model-powered.
+
 A small **experimental OpenCode V2 terminal plugin**, not a fork or custom OpenCode build. Review assistant response text in a docked sidebar, select precise passages with the keyboard, save numbered highlights or comments, then explicitly send the whole batch. The main prompt draft is not read, overwritten, or submitted.
 
 **Readiness:** type checks, build, domain/renderer tests and an actual isolated OpenCode 2.0.32 host smoke test pass. Real keyboard selection, editing, cancel-send, disk persistence/restart, deletion and narrow-terminal fallback were exercised. Real model delivery, cross-process races and exhaustive lifecycle/performance tests remain unverified; this is not a claim of complete ChatGPT feature parity. See [PARITY.md](PARITY.md) for what is and is not established.
