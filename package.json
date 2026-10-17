@@ -1,0 +1,38 @@
+{
+  "name": "opencode-response-annotations",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Experimental response-range annotation panel for OpenCode V2 CLI",
+  "exports": {
+    "./tui": "./dist/tui.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "PARITY.md",
+    "tui.js"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test:panel": "bun test --preload @opentui/solid/preload test/panel.test.tsx test/review-edge-cases.test.tsx",
+    "build": "bun run script/build.ts"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.17",
+    "@opentui/solid": ">=0.5.17",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.0.32",
+    "@opentui/core": "0.5.17",
+    "@opentui/solid": "0.5.17",
+    "@types/bun": "^1.3.11",
+    "@types/node": "24.10.1",
+    "bun": "^1.4.3",
+    "solid-js": "1.9.12",
+    "typescript": "5.9.3"
+  }
+}
