@@ -1,5 +1,19 @@
 # Validation record
 
+## F6 and selected-quote dialogs, 0.3.1 candidate (2026-10-18)
+
+Source/staging only on DESKTOP-49DSGUK, based on published 0.3.0 commit `d744923d2b026eb87256eacdc7a3f71a66507da3`. The running installed 0.3.0 session is not edited, restarted or automated. No model request, stored-data migration, configuration/routing change, publication or activation of this candidate is performed.
+
+- **44 Node tests pass**, including all existing storage/quote/frozen-retry validation.
+- **63 Bun tests pass across seven files, 553 assertions**. Twelve new dialog/keymap cases use the real published OpenTUI/keymap 0.5.17 packages with a small pinned-host layer/mode/config bridge and synthetic renderer input. F6 works with legacy and Kitty encoding while the composer remains focused, and command-specific custom binding overrides and palette dispatch are exercised. These tests do not claim actual Windows/VM keystroke delivery.
+- Create and edit flows show the originally selected quote, including an exact native Unicode capture. Long Unicode/CRLF quotes are wrapped and scrollable at **24x12, 40x18 and 80x24**, and after resize. The fixture models the pinned host dialog's quarter-height offset/top padding and width cap. Page keys and mouse-wheel preview scrolling retain comment focus/value. Cancellation, replacement, oversized-comment correction, session invalidation, stale edits/deletes and zero draft model requests remain covered.
+- All **12 new cases repeated ten times: 120 passes, 1,060 assertions, no retries**. The frame assertions wait for rendered content rather than only a callback. These are synthetic renderer tests, not native terminal automation.
+- Typecheck and build/import pass. Constructed payload measurements are exactly equal to the checked-in 0.3.0 JSON; formatter, storage codec and submission-envelope source files are unchanged. Preview control escaping affects display only; original stored quotes and frozen batch bytes remain intact.
+
+The only added dependency is development-only `@opentui/keymap@0.5.17`, matching the inspected host. Existing peer packages are retained and no React peer or global package is added. npm repeats the pre-existing core package's Node engine warning (Node >=26.4; this VM uses 24.19); renderer/keymap tests and builds run under supported Bun 1.4.3. No runtime installation is upgraded.
+
+Sent expandable transcript cards remain unsupported by the pinned per-message plugin surface; no sidebar/viewer has been substituted. [PRESENTATION.md](PRESENTATION.md) records the public API/native-row evidence and supported alternatives. The historical 0.3.0 candidate record below predates its later publication/activation and does not describe the currently installed version.
+
 ## Quote-only baseline and optional revision storage, 0.3.0 candidate (2026-10-18)
 
 Source-only candidate on DESKTOP-49DSGUK; the active installed 0.2.1 files/session/store have not been updated or migrated. Publication and installed activation are held for independent review. No paid/live model request, authentication change, terminal UI automation or old-message rewrite was performed.

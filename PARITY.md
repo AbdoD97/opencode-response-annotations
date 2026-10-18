@@ -5,15 +5,16 @@
 | Highlight original response | Native terminal mouse selection in main transcript | Actual 2.0.32 host mouse drag accepted unique Alpha/gamma selections |
 | Source identity/ranges | Snapshot, message ID, part index, UTF-16 range | Exact unique source/quote only; version-pinned row-structure adapter, not stable host metadata API |
 | Repeated text / formatted ranges | Conservative refusal | Actual repeated beta refused; no first-match guessing, not full desktop range parity |
-| Optional local comments | Explicit Annotate selection command, optional dialog, commit/cancel | Real native-selection fixture and actual empty-comment host commit |
+| Optional local comments | F6 / Annotate selection, optional dialog with read-only wrapped/scrollable quote preview | Real renderer + published keymap synthetic dispatch, commit/cancel, Unicode, long selections, resize and narrow dialog tests; no live F6 verification |
 | Pending sidebar stack | Scrollable numbered notes only | No source-copy picker/editor; actual two-note docked stack |
-| Review/edit/delete | Pending note dialogs, stable numbering | Real renderer fixtures; uncertain prepared batches remain frozen |
+| Review/edit/delete | Pending note dialogs, original quote visible during comment edit, stable numbering | Real renderer fixtures and fresh locked stale-target comparisons; uncertain prepared batches remain frozen |
 | Explicit batch send | One deterministic readable append-only message; exact quote/comment once per annotation, no automatic excerpts or invented response labels | Published client exercised with offline transport; no live model/compiler/cache proof |
 | Hide after successful send | Close only after validated admission + durable sent save | Renderer ordering/failure/race tests; no live model admission exercised |
 | Uncertain delivery | Stable prepared ID/text, retry identical batch | Admission mismatch, rejected/unknown outcome and failed sent-save/restart tests |
 | Existing saved notes | Same key, compatible v1 reader; optional revision-deduplicated v2 via verified offline backup/migration | Frozen batch manifests, corruption refusal, lossless rollback and actual host file locking tested; live migration deferred |
 | Main composer | Draft not read/modified/submitted by annotations | Source and fixture checks; separate confirmed model submission |
 | Transcript markers | Native temporary selection only | No persistent numbered in-transcript markers or click-to-source restoration |
+| Compact expandable sent annotations | Not available in the main transcript plugin API | Host user row is plain text, with no per-message slot; separate viewer would require an explicit presentation choice, see PRESENTATION.md |
 | Sidebar on narrow terminals | Host fullscreen fallback | Prior prototype host fallback test; corrected layout fixtures, not newly retested live narrow |
 | Lightweight idle behavior | No timers/polling/model calls; selection listener cleaned up | 100 setup/cleanup cycles, no idle history reads; see PERFORMANCE.md |
 

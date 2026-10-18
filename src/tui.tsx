@@ -8,6 +8,7 @@ import { addNote, editNote, removeNote, makeBatch, markSent, noteContents } from
 import type { State, Note } from './model.ts'
 import { annotationStore } from './store-view.ts'
 import { batchPrompt } from './submission.ts'
+import { promptComment } from './comment-dialog.tsx'
 
 type Update = (mutation: (draft: State) => void) => Promise<void>
 const panelName = 'response-annotations.review'
@@ -55,7 +56,7 @@ export default Plugin.define({
         if (!selection) throw new Error(selectionError)
         if (currentSession() !== selection.source.sessionID) throw new Error('Session changed; highlight again')
         validateCapture(selection, input(selection.source.sessionID))
-        const comment = await context.ui.dialog.prompt({ title: 'Commit annotation (optional comment)', placeholder: 'Leave blank for highlight only' })
+        const comment = await promptComment(context, { title: 'Add annotation', quote: selection.quote })
         if (comment === undefined || currentSession() !== selection.source.sessionID || revision !== selectionRevision || captured() !== selection) return
         validateCapture(selection, input(selection.source.sessionID))
         await update(draft => { addNote(draft, selection.source, selection.start, selection.end, comment, crypto.randomUUID()) })
@@ -64,7 +65,7 @@ export default Plugin.define({
       finally { setCaptured(undefined); busy = false }
     }
     context.keymap.layer(() => ({ mode: 'global', commands: [
-      { id: 'response-annotations.capture', title: 'Annotate selection', group: 'Annotations', palette: true, bind: 'ctrl+shift+a', run: annotate },
+      { id: 'response-annotations.capture', title: 'Annotate selection', group: 'Annotations', palette: true, bind: 'f6', run: annotate },
       { id: 'response-annotations.open', title: 'Review pending annotations', group: 'Annotations', palette: true,
         slash: { name: 'annotate' }, run: () => {
           if (!context.ui.panel.open(panelName)) context.ui.toast.show({ message: 'Open a session first' })
@@ -106,7 +107,7 @@ export function AnnotationPanel(props: { context: Context; panel: PanelInput; st
     // Capture values before displaying the asynchronous dialog. Reactive note
     // objects may change while another window saves to the same store.
     const n = await context.ui.dialog.select({ title: sent ? 'Sent references' : 'Pending annotations', options: items.map(n => ({ title: `#${n.number} ${n.quote.replace(/\s+/g, ' ').slice(0, 60)}`, description: n.comment || '(highlight only)',
-      value: { id: n.id, number: n.number, comment: n.comment, expected: sent ? '' : noteContents([n]) },
+      value: { id: n.id, number: n.number, quote: n.quote, comment: n.comment, expected: sent ? '' : noteContents([n]) },
     })) })
     if (!n || !current()) return
     if (sent) { setStatus(`Sent reference #${n.number}: ${n.comment || '(highlight only)'}`); return }
@@ -119,7 +120,7 @@ export function AnnotationPanel(props: { context: Context; panel: PanelInput; st
       if (noteContents(fresh ? [fresh] : []) !== n.expected) throw new Error(`Annotation #${n.number} changed or was removed in another window. Review it again before editing or removing.`)
     }
     if (action === 'edit') {
-      const comment = await context.ui.dialog.prompt({ title: `Edit #${n.number}`, value: n.comment })
+      const comment = await promptComment(context, { title: `Edit annotation #${n.number}`, quote: n.quote, value: n.comment })
       if (comment !== undefined && current()) await props.update(d => { requireUnchanged(d); editNote(d, n.id, comment) })
     }
     if (action === 'remove') await props.update(d => { requireUnchanged(d); removeNote(d, n.id) })
@@ -170,7 +171,7 @@ export function AnnotationPanel(props: { context: Context; panel: PanelInput; st
     <Show when={props.storageError}><text flexShrink={0} fg={context.theme.text.base}>{props.storageError}</text></Show>
     <text flexShrink={0} fg={context.theme.text.base}>{props.storageError ? 'Annotations unavailable — recovery required' : `Pending annotations · ${notes().length}`}</text>
     <text flexShrink={0} fg={context.theme.text.muted}>e edit/delete · Ctrl+S send batch · Esc close</text>
-    <text flexShrink={0} fg={context.theme.text.muted}>Highlight in transcript → Ctrl+Shift+A → commit</text>
+    <text flexShrink={0} fg={context.theme.text.muted}>Highlight in transcript → F6 → commit</text>
     <scrollbox flexGrow={1} minHeight={1}>
       <Show when={notes().length} fallback={<text>{props.storageError ? 'Saved data could not be loaded. Offline recovery is required; changes and sending are disabled.' : 'No pending notes. The original response stays in the transcript.'}</text>}>
         <For each={notes()}>{n => <box flexDirection="column" border borderStyle="single" padding={1} marginBottom={1}>

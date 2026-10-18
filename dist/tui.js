@@ -1,15 +1,15 @@
 // @bun
 // src/tui.tsx
-import { createTextNode as _$createTextNode } from "@opentui/solid";
-import { insertNode as _$insertNode } from "@opentui/solid";
-import { effect as _$effect } from "@opentui/solid";
-import { insert as _$insert } from "@opentui/solid";
-import { setProp as _$setProp } from "@opentui/solid";
-import { createElement as _$createElement } from "@opentui/solid";
+import { createTextNode as _$createTextNode2 } from "@opentui/solid";
+import { insertNode as _$insertNode2 } from "@opentui/solid";
+import { effect as _$effect2 } from "@opentui/solid";
+import { insert as _$insert2 } from "@opentui/solid";
+import { setProp as _$setProp2 } from "@opentui/solid";
+import { createElement as _$createElement2 } from "@opentui/solid";
 import { memo as _$memo } from "@opentui/solid";
-import { createComponent as _$createComponent } from "@opentui/solid";
+import { createComponent as _$createComponent2 } from "@opentui/solid";
 import { Plugin } from "@opencode/plugin/tui";
-import { For, Show, createMemo as createMemo2, createSignal, createEffect, onCleanup } from "solid-js";
+import { For, Show, createMemo as createMemo3, createSignal as createSignal2, createEffect, onCleanup } from "solid-js";
 import { MarkdownRenderable } from "@opentui/core";
 
 // src/revisions.ts
@@ -442,6 +442,158 @@ var batchPrompt = (batch) => ({
   metadata: { annotationBatch: batch.id }
 });
 
+// src/comment-dialog.tsx
+import { effect as _$effect } from "@opentui/solid";
+import { use as _$use } from "@opentui/solid";
+import { createTextNode as _$createTextNode } from "@opentui/solid";
+import { insertNode as _$insertNode } from "@opentui/solid";
+import { insert as _$insert } from "@opentui/solid";
+import { setProp as _$setProp } from "@opentui/solid";
+import { createElement as _$createElement } from "@opentui/solid";
+import { createComponent as _$createComponent } from "@opentui/solid";
+import { mergeProps as _$mergeProps } from "@opentui/solid";
+import { useTerminalDimensions } from "@opentui/solid";
+import { createMemo as createMemo2, createSignal, onMount } from "solid-js";
+var previewText = (quote) => quote.replace(/\r\n/g, `
+`).replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+function promptComment(context, input) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled)
+        return false;
+      settled = true;
+      resolve(value);
+      return true;
+    };
+    context.ui.dialog.show(() => _$createComponent(CommentDialog, _$mergeProps({
+      context
+    }, input, {
+      onSubmit: (comment) => {
+        if (done(comment))
+          context.ui.dialog.clear();
+      }
+    })), () => done(undefined));
+  });
+}
+function CommentDialog(props) {
+  const dimensions = useTerminalDimensions();
+  const [editor, setEditor] = createSignal();
+  let preview;
+  const quote = createMemo2(() => previewText(props.quote));
+  const available = () => Math.max(6, dimensions().height - 6);
+  const inputRows = () => available() >= 12 ? 3 : 1;
+  const quoteRows = () => Math.max(1, Math.min(8, available() - inputRows() - 4));
+  const submit = () => {
+    const input = editor();
+    if (!input || input.isDestroyed)
+      return;
+    if (input.plainText.length > LIMITS.commentChars) {
+      props.context.ui.toast.show({
+        message: "Comment is too long (20,000 characters maximum). Shorten it before saving.",
+        variant: "error"
+      });
+      return;
+    }
+    props.onSubmit(input.plainText);
+  };
+  props.context.keymap.layer(() => ({
+    mode: "modal",
+    priority: 1,
+    target: editor,
+    enabled: !!editor(),
+    commands: [{
+      bind: "return",
+      run: submit
+    }, {
+      bind: "ctrl+return",
+      run: submit
+    }, {
+      bind: "pageup",
+      run: () => preview?.scrollBy(-Math.max(1, quoteRows() - 1))
+    }, {
+      bind: "pagedown",
+      run: () => preview?.scrollBy(Math.max(1, quoteRows() - 1))
+    }]
+  }));
+  onMount(() => {
+    props.context.ui.dialog.set({
+      size: "large"
+    });
+    editor()?.focus();
+    editor()?.gotoLineEnd();
+  });
+  return (() => {
+    var _el$ = _$createElement("box"), _el$2 = _$createElement("text"), _el$3 = _$createElement("text"), _el$5 = _$createElement("scrollbox"), _el$6 = _$createElement("text"), _el$7 = _$createElement("text"), _el$9 = _$createElement("textarea"), _el$0 = _$createElement("text");
+    _$insertNode(_el$, _el$2);
+    _$insertNode(_el$, _el$3);
+    _$insertNode(_el$, _el$5);
+    _$insertNode(_el$, _el$7);
+    _$insertNode(_el$, _el$9);
+    _$insertNode(_el$, _el$0);
+    _$setProp(_el$, "id", "response-annotations.comment");
+    _$setProp(_el$, "width", "100%");
+    _$setProp(_el$, "flexDirection", "column");
+    _$setProp(_el$, "paddingX", 1);
+    _$setProp(_el$2, "flexShrink", 0);
+    _$insert(_el$2, () => props.title);
+    _$insertNode(_el$3, _$createTextNode(`Quote (PgUp/PgDn)`));
+    _$setProp(_el$3, "flexShrink", 0);
+    _$insertNode(_el$5, _el$6);
+    _$use((node) => {
+      preview = node;
+      node.focusable = false;
+    }, _el$5);
+    _$setProp(_el$5, "id", "response-annotations.quote");
+    _$setProp(_el$5, "minHeight", 1);
+    _$setProp(_el$5, "flexShrink", 0);
+    _$setProp(_el$5, "scrollX", false);
+    _$setProp(_el$5, "scrollY", true);
+    _$setProp(_el$6, "id", "response-annotations.quote.text");
+    _$setProp(_el$6, "wrapMode", "word");
+    _$setProp(_el$6, "selectable", false);
+    _$insert(_el$6, quote);
+    _$insertNode(_el$7, _$createTextNode(`Comment (optional)`));
+    _$setProp(_el$7, "flexShrink", 0);
+    _$use(setEditor, _el$9);
+    _$setProp(_el$9, "id", "response-annotations.comment.input");
+    _$setProp(_el$9, "flexShrink", 0);
+    _$setProp(_el$9, "wrapMode", "word");
+    _$setProp(_el$9, "onSubmit", submit);
+    _$insertNode(_el$0, _$createTextNode(`Enter:save Esc:back`));
+    _$setProp(_el$0, "id", "response-annotations.comment.footer");
+    _$setProp(_el$0, "flexShrink", 0);
+    _$effect((_p$) => {
+      var _v$ = props.context.theme.text.base, _v$2 = props.context.theme.text.muted, _v$3 = quoteRows(), _v$4 = props.context.theme.text.muted, _v$5 = props.context.theme.text.muted, _v$6 = inputRows(), _v$7 = props.value ?? "", _v$8 = props.placeholder ?? "Leave blank for highlight only", _v$9 = props.context.theme.text.base, _v$0 = props.context.theme.text.base, _v$1 = props.context.theme.text.muted;
+      _v$ !== _p$.e && (_p$.e = _$setProp(_el$2, "fg", _v$, _p$.e));
+      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$3, "fg", _v$2, _p$.t));
+      _v$3 !== _p$.a && (_p$.a = _$setProp(_el$5, "height", _v$3, _p$.a));
+      _v$4 !== _p$.o && (_p$.o = _$setProp(_el$6, "fg", _v$4, _p$.o));
+      _v$5 !== _p$.i && (_p$.i = _$setProp(_el$7, "fg", _v$5, _p$.i));
+      _v$6 !== _p$.n && (_p$.n = _$setProp(_el$9, "height", _v$6, _p$.n));
+      _v$7 !== _p$.s && (_p$.s = _$setProp(_el$9, "initialValue", _v$7, _p$.s));
+      _v$8 !== _p$.h && (_p$.h = _$setProp(_el$9, "placeholder", _v$8, _p$.h));
+      _v$9 !== _p$.r && (_p$.r = _$setProp(_el$9, "textColor", _v$9, _p$.r));
+      _v$0 !== _p$.d && (_p$.d = _$setProp(_el$9, "focusedTextColor", _v$0, _p$.d));
+      _v$1 !== _p$.l && (_p$.l = _$setProp(_el$0, "fg", _v$1, _p$.l));
+      return _p$;
+    }, {
+      e: undefined,
+      t: undefined,
+      a: undefined,
+      o: undefined,
+      i: undefined,
+      n: undefined,
+      s: undefined,
+      h: undefined,
+      r: undefined,
+      d: undefined,
+      l: undefined
+    });
+    return _el$;
+  })();
+}
+
 // src/tui.tsx
 var panelName = "response-annotations.review";
 var id = () => "msg_" + crypto.randomUUID().replaceAll("-", "");
@@ -450,7 +602,7 @@ var tui_default = Plugin.define({
   setup(context) {
     const store = annotationStore(context.storage);
     const update = store.update;
-    const [captured, setCaptured] = createSignal();
+    const [captured, setCaptured] = createSignal2();
     let selectionRevision = 0;
     let selectionError = "Highlight a passage in the original assistant response first";
     let busy = false;
@@ -512,9 +664,9 @@ var tui_default = Plugin.define({
         if (currentSession() !== selection.source.sessionID)
           throw new Error("Session changed; highlight again");
         validateCapture(selection, input(selection.source.sessionID));
-        const comment = await context.ui.dialog.prompt({
-          title: "Commit annotation (optional comment)",
-          placeholder: "Leave blank for highlight only"
+        const comment = await promptComment(context, {
+          title: "Add annotation",
+          quote: selection.quote
         });
         if (comment === undefined || currentSession() !== selection.source.sessionID || revision !== selectionRevision || captured() !== selection)
           return;
@@ -541,7 +693,7 @@ var tui_default = Plugin.define({
         title: "Annotate selection",
         group: "Annotations",
         palette: true,
-        bind: "ctrl+shift+a",
+        bind: "f6",
         run: annotate
       }, {
         id: "response-annotations.open",
@@ -561,12 +713,12 @@ var tui_default = Plugin.define({
     }));
     const panel = context.ui.slot({
       append: "session.panel",
-      render: (props) => _$createComponent(Show, {
+      render: (props) => _$createComponent2(Show, {
         get when() {
           return props.name === panelName;
         },
         get children() {
-          return _$createComponent(AnnotationPanel, {
+          return _$createComponent2(AnnotationPanel, {
             context,
             panel: props,
             get state() {
@@ -582,16 +734,16 @@ var tui_default = Plugin.define({
     });
     const compact = context.ui.slot({
       append: "session.composer.top",
-      render: (props) => _$createComponent(Show, {
+      render: (props) => _$createComponent2(Show, {
         get when() {
           return store.error || store.state.notes.some((n) => n.source.sessionID === props.sessionID);
         },
         get children() {
-          var _el$ = _$createElement("text");
-          _$setProp(_el$, "flexShrink", 0);
-          _$setProp(_el$, "onMouseDown", () => context.ui.panel.open(panelName));
-          _$insert(_el$, () => store.error || `${store.state.notes.filter((n) => n.source.sessionID === props.sessionID).length} pending annotations \xB7 /annotate to review/send separately`);
-          _$effect((_$p) => _$setProp(_el$, "fg", context.theme.text.muted, _$p));
+          var _el$ = _$createElement2("text");
+          _$setProp2(_el$, "flexShrink", 0);
+          _$setProp2(_el$, "onMouseDown", () => context.ui.panel.open(panelName));
+          _$insert2(_el$, () => store.error || `${store.state.notes.filter((n) => n.source.sessionID === props.sessionID).length} pending annotations \xB7 /annotate to review/send separately`);
+          _$effect2((_$p) => _$setProp2(_el$, "fg", context.theme.text.muted, _$p));
           return _el$;
         }
       })
@@ -613,10 +765,10 @@ function AnnotationPanel(props) {
     disposed = true;
     epoch++;
   });
-  const [busy, setBusy] = createSignal(false);
-  const [status, setStatus] = createSignal("Highlight in the main transcript, then Annotate selection.");
-  const notes = createMemo2(() => props.state.notes.filter((n) => n.source.sessionID === props.panel.sessionID));
-  const history = createMemo2(() => props.state.batches.filter((b) => b.sessionID === props.panel.sessionID && b.status === "sent"));
+  const [busy, setBusy] = createSignal2(false);
+  const [status, setStatus] = createSignal2("Highlight in the main transcript, then Annotate selection.");
+  const notes = createMemo3(() => props.state.notes.filter((n) => n.source.sessionID === props.panel.sessionID));
+  const history = createMemo3(() => props.state.batches.filter((b) => b.sessionID === props.panel.sessionID && b.status === "sent"));
   const fail = (error) => {
     setStatus(error instanceof Error ? error.message : String(error));
     context.ui.toast.show({
@@ -654,6 +806,7 @@ function AnnotationPanel(props) {
         value: {
           id: n.id,
           number: n.number,
+          quote: n.quote,
           comment: n.comment,
           expected: sent ? "" : noteContents([n])
         }
@@ -683,8 +836,9 @@ function AnnotationPanel(props) {
         throw new Error(`Annotation #${n.number} changed or was removed in another window. Review it again before editing or removing.`);
     };
     if (action === "edit") {
-      const comment = await context.ui.dialog.prompt({
-        title: `Edit #${n.number}`,
+      const comment = await promptComment(context, {
+        title: `Edit annotation #${n.number}`,
+        quote: n.quote,
         value: n.comment
       });
       if (comment !== undefined && current())
@@ -772,81 +926,81 @@ function AnnotationPanel(props) {
     }]
   }));
   return (() => {
-    var _el$2 = _$createElement("box"), _el$4 = _$createElement("text"), _el$5 = _$createElement("text"), _el$7 = _$createElement("text"), _el$9 = _$createElement("scrollbox"), _el$0 = _$createElement("text"), _el$1 = _$createElement("text");
-    _$insertNode(_el$2, _el$4);
-    _$insertNode(_el$2, _el$5);
-    _$insertNode(_el$2, _el$7);
-    _$insertNode(_el$2, _el$9);
-    _$insertNode(_el$2, _el$0);
-    _$insertNode(_el$2, _el$1);
-    _$setProp(_el$2, "flexDirection", "column");
-    _$setProp(_el$2, "padding", 1);
-    _$setProp(_el$2, "flexGrow", 1);
-    _$insert(_el$2, _$createComponent(Show, {
+    var _el$2 = _$createElement2("box"), _el$4 = _$createElement2("text"), _el$5 = _$createElement2("text"), _el$7 = _$createElement2("text"), _el$9 = _$createElement2("scrollbox"), _el$0 = _$createElement2("text"), _el$1 = _$createElement2("text");
+    _$insertNode2(_el$2, _el$4);
+    _$insertNode2(_el$2, _el$5);
+    _$insertNode2(_el$2, _el$7);
+    _$insertNode2(_el$2, _el$9);
+    _$insertNode2(_el$2, _el$0);
+    _$insertNode2(_el$2, _el$1);
+    _$setProp2(_el$2, "flexDirection", "column");
+    _$setProp2(_el$2, "padding", 1);
+    _$setProp2(_el$2, "flexGrow", 1);
+    _$insert2(_el$2, _$createComponent2(Show, {
       get when() {
         return props.storageError;
       },
       get children() {
-        var _el$3 = _$createElement("text");
-        _$setProp(_el$3, "flexShrink", 0);
-        _$insert(_el$3, () => props.storageError);
-        _$effect((_$p) => _$setProp(_el$3, "fg", context.theme.text.base, _$p));
+        var _el$3 = _$createElement2("text");
+        _$setProp2(_el$3, "flexShrink", 0);
+        _$insert2(_el$3, () => props.storageError);
+        _$effect2((_$p) => _$setProp2(_el$3, "fg", context.theme.text.base, _$p));
         return _el$3;
       }
     }), _el$4);
-    _$setProp(_el$4, "flexShrink", 0);
-    _$insert(_el$4, (() => {
+    _$setProp2(_el$4, "flexShrink", 0);
+    _$insert2(_el$4, (() => {
       var _c$ = _$memo(() => !!props.storageError);
       return () => _c$() ? "Annotations unavailable \u2014 recovery required" : `Pending annotations \xB7 ${notes().length}`;
     })());
-    _$insertNode(_el$5, _$createTextNode(`e edit/delete \xB7 Ctrl+S send batch \xB7 Esc close`));
-    _$setProp(_el$5, "flexShrink", 0);
-    _$insertNode(_el$7, _$createTextNode(`Highlight in transcript \u2192 Ctrl+Shift+A \u2192 commit`));
-    _$setProp(_el$7, "flexShrink", 0);
-    _$setProp(_el$9, "flexGrow", 1);
-    _$setProp(_el$9, "minHeight", 1);
-    _$insert(_el$9, _$createComponent(Show, {
+    _$insertNode2(_el$5, _$createTextNode2(`e edit/delete \xB7 Ctrl+S send batch \xB7 Esc close`));
+    _$setProp2(_el$5, "flexShrink", 0);
+    _$insertNode2(_el$7, _$createTextNode2(`Highlight in transcript \u2192 F6 \u2192 commit`));
+    _$setProp2(_el$7, "flexShrink", 0);
+    _$setProp2(_el$9, "flexGrow", 1);
+    _$setProp2(_el$9, "minHeight", 1);
+    _$insert2(_el$9, _$createComponent2(Show, {
       get when() {
         return notes().length;
       },
       get fallback() {
         return (() => {
-          var _el$11 = _$createElement("text");
-          _$insert(_el$11, () => props.storageError ? "Saved data could not be loaded. Offline recovery is required; changes and sending are disabled." : "No pending notes. The original response stays in the transcript.");
+          var _el$11 = _$createElement2("text");
+          _$insert2(_el$11, () => props.storageError ? "Saved data could not be loaded. Offline recovery is required; changes and sending are disabled." : "No pending notes. The original response stays in the transcript.");
           return _el$11;
         })();
       },
       get children() {
-        return _$createComponent(For, {
+        return _$createComponent2(For, {
           get each() {
             return notes();
           },
           children: (n) => (() => {
-            var _el$12 = _$createElement("box"), _el$13 = _$createElement("text"), _el$14 = _$createTextNode(`#`), _el$15 = _$createTextNode(` \xB7 `), _el$16 = _$createElement("text"), _el$17 = _$createElement("text"), _el$18 = _$createTextNode(` \xB7 part `);
-            _$insertNode(_el$12, _el$13);
-            _$insertNode(_el$12, _el$16);
-            _$insertNode(_el$12, _el$17);
-            _$setProp(_el$12, "flexDirection", "column");
-            _$setProp(_el$12, "border", true);
-            _$setProp(_el$12, "borderStyle", "single");
-            _$setProp(_el$12, "padding", 1);
-            _$setProp(_el$12, "marginBottom", 1);
-            _$insertNode(_el$13, _el$14);
-            _$insertNode(_el$13, _el$15);
-            _$setProp(_el$13, "flexShrink", 0);
-            _$insert(_el$13, () => n.number, _el$15);
-            _$insert(_el$13, () => n.comment || "(highlight only)", null);
-            _$setProp(_el$16, "flexShrink", 0);
-            _$insert(_el$16, () => n.quote);
-            _$insertNode(_el$17, _el$18);
-            _$setProp(_el$17, "flexShrink", 0);
-            _$insert(_el$17, () => n.source.messageID, _el$18);
-            _$insert(_el$17, () => n.source.part + 1, null);
-            _$effect((_p$) => {
+            var _el$12 = _$createElement2("box"), _el$13 = _$createElement2("text"), _el$14 = _$createTextNode2(`#`), _el$15 = _$createTextNode2(` \xB7 `), _el$16 = _$createElement2("text"), _el$17 = _$createElement2("text"), _el$18 = _$createTextNode2(` \xB7 part `);
+            _$insertNode2(_el$12, _el$13);
+            _$insertNode2(_el$12, _el$16);
+            _$insertNode2(_el$12, _el$17);
+            _$setProp2(_el$12, "flexDirection", "column");
+            _$setProp2(_el$12, "border", true);
+            _$setProp2(_el$12, "borderStyle", "single");
+            _$setProp2(_el$12, "padding", 1);
+            _$setProp2(_el$12, "marginBottom", 1);
+            _$insertNode2(_el$13, _el$14);
+            _$insertNode2(_el$13, _el$15);
+            _$setProp2(_el$13, "flexShrink", 0);
+            _$insert2(_el$13, () => n.number, _el$15);
+            _$insert2(_el$13, () => n.comment || "(highlight only)", null);
+            _$setProp2(_el$16, "flexShrink", 0);
+            _$insert2(_el$16, () => n.quote);
+            _$insertNode2(_el$17, _el$18);
+            _$setProp2(_el$17, "flexShrink", 0);
+            _$insert2(_el$17, () => n.source.messageID, _el$18);
+            _$insert2(_el$17, () => n.source.part + 1, null);
+            _$effect2((_p$) => {
               var _v$7 = context.theme.text.base, _v$8 = context.theme.text.muted, _v$9 = context.theme.text.muted;
-              _v$7 !== _p$.e && (_p$.e = _$setProp(_el$13, "fg", _v$7, _p$.e));
-              _v$8 !== _p$.t && (_p$.t = _$setProp(_el$16, "fg", _v$8, _p$.t));
-              _v$9 !== _p$.a && (_p$.a = _$setProp(_el$17, "fg", _v$9, _p$.a));
+              _v$7 !== _p$.e && (_p$.e = _$setProp2(_el$13, "fg", _v$7, _p$.e));
+              _v$8 !== _p$.t && (_p$.t = _$setProp2(_el$16, "fg", _v$8, _p$.t));
+              _v$9 !== _p$.a && (_p$.a = _$setProp2(_el$17, "fg", _v$9, _p$.a));
               return _p$;
             }, {
               e: undefined,
@@ -858,21 +1012,21 @@ function AnnotationPanel(props) {
         });
       }
     }));
-    _$setProp(_el$0, "flexShrink", 0);
-    _$insert(_el$0, (() => {
+    _$setProp2(_el$0, "flexShrink", 0);
+    _$insert2(_el$0, (() => {
       var _c$2 = _$memo(() => !!busy());
       return () => _c$2() ? "Working\u2026" : status();
     })());
-    _$insertNode(_el$1, _$createTextNode(`h saved references \xB7 f expand`));
-    _$setProp(_el$1, "flexShrink", 0);
-    _$effect((_p$) => {
+    _$insertNode2(_el$1, _$createTextNode2(`h saved references \xB7 f expand`));
+    _$setProp2(_el$1, "flexShrink", 0);
+    _$effect2((_p$) => {
       var _v$ = props.panel.focus, _v$2 = context.theme.text.base, _v$3 = context.theme.text.muted, _v$4 = context.theme.text.muted, _v$5 = context.theme.text.muted, _v$6 = context.theme.text.muted;
-      _v$ !== _p$.e && (_p$.e = _$setProp(_el$2, "onMouseDown", _v$, _p$.e));
-      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$4, "fg", _v$2, _p$.t));
-      _v$3 !== _p$.a && (_p$.a = _$setProp(_el$5, "fg", _v$3, _p$.a));
-      _v$4 !== _p$.o && (_p$.o = _$setProp(_el$7, "fg", _v$4, _p$.o));
-      _v$5 !== _p$.i && (_p$.i = _$setProp(_el$0, "fg", _v$5, _p$.i));
-      _v$6 !== _p$.n && (_p$.n = _$setProp(_el$1, "fg", _v$6, _p$.n));
+      _v$ !== _p$.e && (_p$.e = _$setProp2(_el$2, "onMouseDown", _v$, _p$.e));
+      _v$2 !== _p$.t && (_p$.t = _$setProp2(_el$4, "fg", _v$2, _p$.t));
+      _v$3 !== _p$.a && (_p$.a = _$setProp2(_el$5, "fg", _v$3, _p$.a));
+      _v$4 !== _p$.o && (_p$.o = _$setProp2(_el$7, "fg", _v$4, _p$.o));
+      _v$5 !== _p$.i && (_p$.i = _$setProp2(_el$0, "fg", _v$5, _p$.i));
+      _v$6 !== _p$.n && (_p$.n = _$setProp2(_el$1, "fg", _v$6, _p$.n));
       return _p$;
     }, {
       e: undefined,
@@ -890,4 +1044,4 @@ export {
   tui_default as default
 };
 
-//# debugId=C220F969B03065B164756E2164756E21
+//# debugId=6FECB1208B77E17364756E2164756E21

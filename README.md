@@ -19,14 +19,22 @@ No OpenCode fork/core build, browser extension, API key or separate model is nee
 ## Workflow
 
 1. Mouse-drag a passage in a completed assistant response in the original transcript.
-2. Press **Ctrl+Shift+A**, or choose **Annotate selection** in the command palette. A local optional-comment dialog opens. No automatic popup steals focus on selection. Terminals that cannot encode that shortcut can use the palette.
-3. Enter a comment, or leave it empty for a highlight-only note. Enter commits; cancel saves nothing.
+2. Press **F6**, or press **Ctrl+P** and choose **Annotations → Annotate selection**. A local optional-comment dialog opens with the selected quote visible. No automatic popup steals focus on selection. Existing command-specific custom bindings remain authoritative.
+3. Enter a comment, or leave it empty for a highlight-only note. **Enter** commits; **Esc** cancels without saving. The quote preview wraps in a bounded scroll area: **PgUp/PgDn** or the mouse wheel scroll it while the comment retains focus. The full original quote stays unchanged; preview-only terminal/bidi controls are shown as visible escapes.
 4. The sidebar opens with numbered pending notes. Repeat the original-transcript selection to stack more. `/annotate` or **Review pending annotations** reopens the queue. The compact composer row reports the pending count without reading or changing its draft.
-5. Focus/click the sidebar and press **e** to select a note, edit its comment or remove it. Numbers are stable per session and deleted numbers are not reused. **Esc** closes the panel; **f** changes its presentation; **h** lists saved sent references.
+5. Focus/click the sidebar and press **e** to select a note, edit its comment or remove it. The edit dialog shows that note's original selected quote. Numbers are stable per session and deleted numbers are not reused. **Esc** closes the panel; **f** changes its presentation; **h** lists saved sent references.
 6. **Ctrl+S** opens the explicit **Send batch** confirmation. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. New batches send only readable numbered exact quotes and optional comments, once per annotation, with one shared instruction paragraph. Full source snapshots, message/part identities and UTF-16 offsets stay local. No automatic excerpts, model tools, extra sessions or model-only transforms are added.
 7. The sidebar hides **only after matching prompt admission is returned and sent state is durably saved**. This is admission, not proof the model has finished answering. Failure or uncertainty keeps the batch/notes available.
 
 The main composer's unsent text, attachments and uncommitted model/agent selections are not merged into this separate batch. No model call occurs while highlighting, commenting, editing or deleting.
+
+## Quote previews and shortcut (0.3.1 candidate)
+
+The new default **F6** avoids the old Ctrl+Shift+A collision with OpenCode's input-selection command and the loss of the Shift modifier in legacy Ctrl-letter encodings. The palette label and command ID remain unchanged. Real published-keymap tests exercise synthetic legacy/Kitty input with the composer focused, custom binding overrides and palette dispatch; this is not yet an independently observed Windows terminal keystroke test.
+
+Create/edit comment dialogs use only the public custom-dialog API. They show the saved exact selection as a read-only, wrapped, scrollable preview, preserve comment focus during preview scrolling/resizing, and retain cancellation and stale-note checks. Display escaping never changes saved source text, quotes, comments or the batch formatter/transport. No new model text, tool or model call is added.
+
+The pinned host renders sent user text literally and exposes no individual-message plugin rendering slot. Compact expandable annotation cards in that transcript cannot be supplied by this plugin alone. No separate viewer has been substituted for that request. See [PRESENTATION.md](PRESENTATION.md) for the inspected supported surfaces and options.
 
 ## Quote-only batches and optional deduplicated storage (0.3.0)
 
