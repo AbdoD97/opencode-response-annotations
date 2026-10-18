@@ -28,18 +28,14 @@ test('Unicode, CRLF, whitespace and Markdown delimiters stay literal without clo
   assert.ok(!text.includes('# Nearby source context'))
 })
 
-test('short quotes receive one bounded grapheme-safe excerpt per source, shared by multiple notes', () => {
+test('short Unicode quotes never inject neighboring source excerpts', () => {
   const prefix = '👩🏽‍💻e\u0301\r\n'.repeat(30), suffix = '🇬🇧e\u0301\r\n'.repeat(30)
   const src = source(prefix + 'Alpha gamma' + suffix), state = initialState()
   addNote(state, src, prefix.length, prefix.length + 5, '', 'a')
   addNote(state, src, prefix.length + 6, prefix.length + 11, '', 'b')
   const text = makeBatch(state, src.sessionID, 'batch', 1).text
-  const excerpts = blocks(text).slice(2)
-  assert.equal(excerpts.length, 1)
-  const excerpt = excerpts[0], start = src.text.indexOf(excerpt)
-  assert.ok(start >= 0); assert.ok(isBoundary(src.text, start)); assert.ok(isBoundary(src.text, start + excerpt.length))
-  assert.ok(excerpt.length <= 5 + 160)
-  assert.ok(excerpt.includes('Alpha')); assert.ok(!text.includes(src.text))
+  assert.deepEqual(blocks(text), ['Alpha', 'gamma'])
+  assert.ok(!text.includes(prefix)); assert.ok(!text.includes(suffix)); assert.ok(!text.includes('# Nearby source context'))
 })
 
 test('long response snapshots and sibling parts remain exact locally without repeated model payloads', () => {
@@ -63,8 +59,8 @@ test('overlapping annotations retain distinct numbers and comments without dupli
   addNote(state, src, 106, 116, 'Second question', 'two')
   const batch = makeBatch(state, src.sessionID, 'batch', 1)
   assert.deepEqual(batch.notes.map(n => [n.start, n.end, n.quote]), [[100, 110, 'Alpha beta'], [106, 116, 'beta gamma']])
-  assert.equal(blocks(batch.text).length, 5)
-  assert.equal(batch.text.split('Response 1, near annotation').length, 2)
+  assert.equal(blocks(batch.text).length, 4)
+  assert.ok(!batch.text.includes('Response 1'))
   assert.ok(batch.text.includes('First question')); assert.ok(batch.text.includes('Second question'))
 })
 
@@ -76,15 +72,15 @@ test('selecting multiple parts of one response never injects its complete siblin
   assert.ok(batch.text.length < 1600)
   for (const part of parts) assert.ok(!batch.text.includes(part.text))
   assert.deepEqual(batch.notes.map(note => note.source.responseParts), [parts, parts])
-  assert.equal(blocks(batch.text).length, 4)
+  assert.equal(blocks(batch.text).length, 2)
 })
 
-test('multiple sources carry readable quote anchors, not opaque source IDs alone', () => {
+test('multiple sources retain exact local provenance without invented response reference labels', () => {
   const state = initialState()
   for (const [i, text] of ['Alpha explanation.', 'Gamma explanation.'].entries()) addNote(state, source(text, `msg_${i}`), 0, 5, '', `n${i}`)
   const batch = makeBatch(state, 'session_internal', 'batch', 1)
-  assert.ok(batch.text.includes('Source: Response 1.')); assert.ok(batch.text.includes('Source: Response 2.'))
-  assert.ok(batch.text.includes('Alpha explanation.')); assert.ok(batch.text.includes('Gamma explanation.'))
+  assert.ok(!batch.text.includes('Source: Response')); assert.deepEqual(blocks(batch.text), ['Alpha', 'Gamma'])
+  assert.ok(!batch.text.includes('explanation.'))
   assert.deepEqual(batch.notes.map(n => n.source.messageID), ['msg_0', 'msg_1'])
 })
 
@@ -111,4 +107,17 @@ test('new readable prepared payloads retry byte-for-byte after restart despite n
   const retry = makeBatch(restored, src.sessionID, 'ignored_id', 2)
   assert.equal(retry.id, original.id); assert.equal(retry.text, original.text)
   markSent(restored, retry.id); assert.deepEqual(restored.notes.map(n => n.id), ['two'])
+})
+
+test('new-batch text is deterministic and independent of batch IDs, clocks and source snapshot size', () => {
+  const left = initialState(), src = source('Alpha' + 'x'.repeat(10_000))
+  addNote(left, src, 0, 5, 'Explain', 'note_a')
+  const right = JSON.parse(JSON.stringify(left))
+  right.notes[0].source.messageID = 'different_local_source_id'
+  right.notes[0].source.text += 'more unselected context'
+  const a = makeBatch(left, src.sessionID, 'msg_first', 1), b = makeBatch(right, src.sessionID, 'msg_second', 999)
+  assert.equal(a.text, b.text)
+  assert.ok(!a.text.includes('msg_first')); assert.ok(!a.text.includes(src.text))
+  assert.equal(blocks(a.text).filter(value => value === 'Alpha').length, 1)
+  assert.equal(blocks(a.text).filter(value => value === 'Explain').length, 1)
 })

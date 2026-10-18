@@ -1,8 +1,18 @@
 import { test, expect } from 'bun:test'
 import { deferred, harness, fixtureState, admitted } from './panel-harness.tsx'
-import { addNote, editNote, makeBatch } from '../src/model.ts'
+import { addNote, editNote, makeBatch, initialState } from '../src/model.ts'
 
 // All admissions are mocked. These verify component ordering/retention, not a live model.
+test('recovery state is visibly unavailable and cannot edit, prepare or submit an empty replacement', async () => {
+  const h = await harness(initialState(), { storageError: 'Corrupt store fixture: recovery required' })
+  try {
+    await h.screen.waitForFrame(frame => frame.includes('Annotations unavailable'))
+    await h.key('e'); await h.key('ctrl+s')
+    expect(h.controls.calls).toHaveLength(0); expect(h.controls.updates).toBe(0)
+    expect(h.screen.captureCharFrame().replace(/\s+/g, ' ')).toContain('changes and sending are disabled')
+    expect(h.controls.errors.every(error => error.includes('recovery required'))).toBe(true)
+  } finally { h.destroy() }
+})
 test('legacy prepared JSON retries unchanged after failed admission and restart', async () => {
   const state = fixtureState(), legacy = makeBatch(state, 'a', 'msg_legacy_batch', 1)
   legacy.text = 'Legacy batch\n\n{"format":"opencode-response-annotations/v1","quote":"alpha"}'

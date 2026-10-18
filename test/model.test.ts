@@ -18,10 +18,10 @@ test('graphemes, whitespace, newline and trailing cursor positions preserved', (
  assert.throws(()=>addNote(initialState(),source,11,12,'','bad'))
  assert.throws(()=>addNote(initialState(),source,0,0,'','bad'))
 })
-test('snapshot and precise offsets remain local while one bounded source excerpt is sent', () => {
+test('snapshot and precise offsets remain local; only exact quotes and comments are sent', () => {
  const s=initialState(); addNote(s,source,0,4,'first','1'); addNote(s,source,5,9,'second','2')
  const b=makeBatch(s,'session-a','batch',1)
- assert.equal(b.text.split('Response 1, near annotation').length,2); assert.ok(b.text.includes(source.text))
+ assert.ok(!b.text.includes('Response 1')); assert.ok(!b.text.includes(source.text))
  assert.equal(b.notes[1].start,5); assert.equal(b.notes[0].source.text,source.text)
 })
 test('edit/remove and durable JSON restoration',()=>{
@@ -40,5 +40,5 @@ test('full sibling response text parts stay local instead of being injected',()=
  addNote(s,full,5,9,'','a');const b=makeBatch(s,source.sessionID,'batch',1)
  assert.deepEqual(b.notes[0].source.responseParts,full.responseParts)
  assert.ok(!b.text.includes('Earlier explanation'));assert.ok(!b.text.includes('Conclusion'))
- assert.equal(b.text.split(source.text).length,2)
+ assert.equal(b.text.split(source.text).length,1)
 })

@@ -4,12 +4,13 @@ import { testRender } from '@opentui/solid'
 import { createRoot } from 'solid-js'
 import plugin from '../src/tui.tsx'
 import { initialState } from '../src/model.ts'
+import { migrateStoredState } from '../src/storage.ts'
 import type { Context } from '@opencode/plugin/tui/context'
 
 test('idle renderer frames do not inspect history; repeated setup cleanup releases listeners and slots', async()=>{
   const screen=await testRender(()=><text>Unchanged ordinary CLI transcript fixture</text>,{width:80,height:12})
   let historyReads=0,slots=0,slotCleanups=0
-  const context={app:{version:'2.0.32'},renderer:screen.renderer,storage:{store:()=>[initialState(),async()=>{}]},
+  const context={app:{version:'2.0.32'},renderer:screen.renderer,storage:{store:()=>[migrateStoredState(initialState()),async()=>{}]},
     keymap:{layer:()=>{}},data:{session:{get:()=>({}),message:{list:()=>{historyReads++;return []}}}},
     ui:{router:{current:()=>({type:'session',sessionID:'s'})},slot:()=>{slots++;return ()=>{slotCleanups++}},panel:{open:()=>true},dialog:{prompt:async()=>undefined},toast:{show:()=>{}}},
     client:{session:{prompt:()=>{throw new Error('No model call allowed')}}},

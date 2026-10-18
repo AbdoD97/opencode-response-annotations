@@ -1,5 +1,22 @@
 # Validation record
 
+## Quote-only baseline and optional revision storage, 0.3.0 candidate (2026-10-18)
+
+Source-only candidate on DESKTOP-49DSGUK; the active installed 0.2.1 files/session/store have not been updated or migrated. Publication and installed activation are held for independent review. No paid/live model request, authentication change, terminal UI automation or old-message rewrite was performed.
+
+- **44** Node domain/selection/storage tests pass (`node --test --test-isolation=none test/*.test.ts`). This includes exact Unicode/CRLF/comments, no neighboring excerpts, deterministic ID/time-independent new text, graph/hash/unit/counter validation, frozen old prepared bytes/IDs/time/note data, differing sibling revisions, rollback and large shared sources. Six review regressions reject sent/pending overlap and multiple owning batches in v1/v2 without changing input; the valid historical migration/rollback case still passes.
+- **34** OpenTUI renderer + published-client tests pass, **380** assertions. They cover draft CRUD/cancel with zero requests, one actual client request construction on Send, byte-identical envelope after uncertain retry/restart, unavailable recovery UI, durable-failure retention and success-only hide. Fetch is an offline response fixture; no remote host or provider is contacted.
+- **17** pinned-host storage/renderer tests pass, **69** assertions. The fixture retains the inspected `createStorage`/atomic-write bodies from OpenCode commit `594af423e8676b8458d6ef125ddde6766afad392`, removing UI-provider imports and redirecting the local persistence import. Published `@opencode/util` 2.0.32 supplies the real file lock. Tests use disposable files, two instances and two headless child processes; they cover stale confirmation, one logical prepared ID across windows, sent-save failure, corrupt/old-cached fallback refusal, verified backups, interruption, stale replacement, initialization and rollback. Six added two-window renderer cases reject stale edit/delete targets, preserve unrelated concurrent edits, and retain the originally displayed snapshot across a reactive update while the note picker remains open. Dialogs and model admission remain fixtures.
+- Typecheck includes source/tests/scripts. Build regenerates the candidate distribution. No live user data is included in tests or benchmark artifacts.
+
+Review synchronization correction: the two stale-target edit/remove tests wait for the rendered review-again status after the busy indicator clears, retaining the toast and visible-text assertions. Each case also passes 25 repeated runs (50 passes, 250 assertions, no retries). Production conflict behavior is unchanged. Artifact receipts distinguish raw archived CRLF bytes from the LF-normalized content hash.
+
+The actual client fixture verifies the fixed `session.prompt` JSON envelope and untouched synthetic prior-message/system/tool/provider objects. It is **not** an execution of OpenCode's complete history lowering, compaction, model-request compiler or provider cache policy. Those compiled-provider tests are unavailable in this installed CLI-only workspace; no upstream provider test suite or actual caching/billing experiment was run. Cache eligibility is not a cache-hit guarantee.
+
+New prompt bytes for the three documented synthetic cases are **355 / 775 / 885**, compared with 0.2.1's **633 / 1,053 / 1,527**. The explicit coarse estimator remains `ceil(UTF-8 text bytes / 4)`, giving **89 / 194 / 222** estimates, not actual model tokens. See [PERFORMANCE.md](PERFORMANCE.md) and raw JSON for separate text/body/storage/timing boundaries.
+
+Existing nonempty v1 data uses the new format and validation without schema migration, retaining its local duplication. V2 deduplication is opt-in and deliberately deferred for the live store. Fresh or ambiguous empty stores require explicit offline initialize/migrate, never automatic reset. [STORAGE.md](STORAGE.md) describes verified backup, process/offline guards, current-state rollback and the limits of cooperative locking/power-loss protection.
+
 ## Readable compact batches, 0.2.1 (2026-10-18)
 
 Validated on Windows VM DESKTOP-49DSGUK with official `@opencode/cli` 2.0.32, Node 24.19.0 and Bun 1.4.3. This change does not alter selection capture, model routing or the `annotations-v1` storage schema. No real batch was sent or replayed during this validation.

@@ -1,0 +1,78 @@
+{
+  "scope": "Synthetic client prompt text and JSON-encoded session.prompt argument sizes; not captured HTTP traffic or observed server/model context.",
+  "tokenEstimator": "ceil(UTF-8 text bytes / 4), a coarse English-oriented heuristic; not a model tokenizer or measured billing/context usage.",
+  "results": [
+    {
+      "name": "1 note / 10K response",
+      "v020": {
+        "textUtf8Bytes": 20843,
+        "estimatedTextTokens": 5211,
+        "promptArgumentJsonBytes": 21056,
+        "promptHttpBodyBytes": 21026
+      },
+      "v021": {
+        "textUtf8Bytes": 633,
+        "estimatedTextTokens": 159,
+        "promptArgumentJsonBytes": 793,
+        "promptHttpBodyBytes": 763
+      },
+      "current": {
+        "textUtf8Bytes": 355,
+        "estimatedTextTokens": 89,
+        "promptArgumentJsonBytes": 507,
+        "promptHttpBodyBytes": 477
+      },
+      "reductionFromV021Percent": 43.92,
+      "reductionFromV020Percent": 98.3,
+      "legacyWouldExceedPayloadLimit": false
+    },
+    {
+      "name": "5 notes / same 100K response",
+      "v020": {
+        "textUtf8Bytes": 201559,
+        "estimatedTextTokens": 50390,
+        "promptArgumentJsonBytes": 201868,
+        "promptHttpBodyBytes": 201838
+      },
+      "v021": {
+        "textUtf8Bytes": 1053,
+        "estimatedTextTokens": 264,
+        "promptArgumentJsonBytes": 1261,
+        "promptHttpBodyBytes": 1231
+      },
+      "current": {
+        "textUtf8Bytes": 775,
+        "estimatedTextTokens": 194,
+        "promptArgumentJsonBytes": 975,
+        "promptHttpBodyBytes": 945
+      },
+      "reductionFromV021Percent": 26.4,
+      "reductionFromV020Percent": 99.62,
+      "legacyWouldExceedPayloadLimit": false
+    },
+    {
+      "name": "6 notes / 2 selected parts / same 3-part 120K response",
+      "v020": {
+        "textUtf8Bytes": 322234,
+        "estimatedTextTokens": 80559,
+        "promptArgumentJsonBytes": 322639,
+        "promptHttpBodyBytes": 322609
+      },
+      "v021": {
+        "textUtf8Bytes": 1527,
+        "estimatedTextTokens": 382,
+        "promptArgumentJsonBytes": 1767,
+        "promptHttpBodyBytes": 1737
+      },
+      "current": {
+        "textUtf8Bytes": 885,
+        "estimatedTextTokens": 222,
+        "promptArgumentJsonBytes": 1099,
+        "promptHttpBodyBytes": 1069
+      },
+      "reductionFromV021Percent": 42.04,
+      "reductionFromV020Percent": 99.73,
+      "legacyWouldExceedPayloadLimit": false
+    }
+  ]
+}

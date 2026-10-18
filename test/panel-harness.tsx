@@ -6,6 +6,7 @@ import type { Context, PanelInput } from '@opencode/plugin/tui/context'
 import { AnnotationPanel } from '../src/tui.tsx'
 import { initialState, addNote } from '../src/model.ts'
 import type { State } from '../src/model.ts'
+import type { batchPrompt } from '../src/submission.ts'
 
 export const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -13,7 +14,7 @@ export const deferred = <T,>() => {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
-export type Request = { sessionID: string; id: string; text: string; delivery: string; metadata: unknown }
+export type Request = ReturnType<typeof batchPrompt>
 export const admitted = (input: Request) => ({ id: input.id, sessionID: input.sessionID, type: 'user', time: { created: 1 }, payload: { text: input.text }, delivery: input.delivery })
 export function fixtureState(count = 1): State {
   const state = initialState()
@@ -24,7 +25,7 @@ export function fixtureState(count = 1): State {
   }, i % 2 ? 6 : 0, i % 2 ? 10 : 5, i ? `comment ${i + 1}` : '', `note-${i + 1}`)
   return state
 }
-export async function harness(initial: State = fixtureState()) {
+export async function harness(initial: State = fixtureState(), options: { storageError?: string; transaction?: (mutation: (draft: State) => void) => Promise<State> } = {}) {
   const [state, setState] = createStore(initial)
   let durable = JSON.stringify(initial)
   let commands: Array<{ bind?: string; run: () => unknown }> = []
@@ -57,13 +58,13 @@ export async function harness(initial: State = fixtureState()) {
     const ordinal = ++controls.updates
     await controls.beforeUpdate(ordinal)
     // Match the storage transaction contract: a failed write must not mutate live state.
-    const draft: State = JSON.parse(JSON.stringify(unwrap(state)))
-    fn(draft)
+    const draft: State = options.transaction ? await options.transaction(fn) : JSON.parse(JSON.stringify(unwrap(state)))
+    if (!options.transaction) fn(draft)
     durable = JSON.stringify(draft)
     setState(reconcile(draft))
     controls.events.push(`saved:${ordinal}`)
   }
-  const screen = await testRender(() => <AnnotationPanel context={context} panel={panel} state={state} update={update} />, { width: 80, height: 50 })
+  const screen = await testRender(() => <AnnotationPanel context={context} panel={panel} state={state} update={update} storageError={options.storageError} />, { width: 80, height: 50 })
   await screen.flush()
   async function key(bind: string) {
     const command = commands.find(c => c.bind === bind)

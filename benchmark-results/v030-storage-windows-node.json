@@ -1,0 +1,184 @@
+{
+  "environment": {
+    "runtime": "Node v24.19.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "scope": "Synthetic sources; codec/prepare CPU and adapted pinned host filesystem storage. Not full TUI latency, a physical disk fault, model context, cache hits, tokens or billing.",
+  "results": [
+    {
+      "notes": 1,
+      "sourceUTF16Units": 10000,
+      "sourceRevisions": 1,
+      "bytes": {
+        "pending": {
+          "v1": 20222,
+          "v2": 20429
+        },
+        "prepared": {
+          "v1": 40820,
+          "v2": 21017
+        },
+        "sent": {
+          "v1": 20646,
+          "v2": 20853
+        },
+        "promptText": 329
+      },
+      "measurements": [
+        {
+          "name": "read/validate v1",
+          "iterations": 15,
+          "medianMs": 0.208,
+          "p95Ms": 0.248
+        },
+        {
+          "name": "read/validate v2",
+          "iterations": 15,
+          "medianMs": 0.298,
+          "p95Ms": 0.429
+        },
+        {
+          "name": "prepare v1 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 1.149,
+          "p95Ms": 4.775
+        },
+        {
+          "name": "prepare v2 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 1.428,
+          "p95Ms": 1.879
+        }
+      ],
+      "hostLockedEditWithAtomicRename": {
+        "v1": {
+          "iterations": 10,
+          "medianMs": 19.265,
+          "p95Ms": 25.65
+        },
+        "v2": {
+          "iterations": 10,
+          "medianMs": 18.663,
+          "p95Ms": 22.885
+        }
+      }
+    },
+    {
+      "notes": 10,
+      "sourceUTF16Units": 10000,
+      "sourceRevisions": 1,
+      "bytes": {
+        "pending": {
+          "v1": 201844,
+          "v2": 21961
+        },
+        "prepared": {
+          "v1": 404973,
+          "v2": 24990
+        },
+        "sent": {
+          "v1": 203178,
+          "v2": 23295
+        },
+        "promptText": 1113
+      },
+      "measurements": [
+        {
+          "name": "read/validate v1",
+          "iterations": 15,
+          "medianMs": 0.818,
+          "p95Ms": 1.167
+        },
+        {
+          "name": "read/validate v2",
+          "iterations": 15,
+          "medianMs": 0.587,
+          "p95Ms": 1.141
+        },
+        {
+          "name": "prepare v1 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 5.322,
+          "p95Ms": 6.662
+        },
+        {
+          "name": "prepare v2 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 4.846,
+          "p95Ms": 10.074
+        }
+      ],
+      "hostLockedEditWithAtomicRename": {
+        "v1": {
+          "iterations": 10,
+          "medianMs": 22.783,
+          "p95Ms": 24.704
+        },
+        "v2": {
+          "iterations": 10,
+          "medianMs": 19.821,
+          "p95Ms": 20.706
+        }
+      }
+    },
+    {
+      "notes": 100,
+      "sourceUTF16Units": 10000,
+      "sourceRevisions": 1,
+      "bytes": {
+        "pending": {
+          "v1": 2018316,
+          "v2": 37533
+        },
+        "prepared": {
+          "v1": 4047187,
+          "v2": 65404
+        },
+        "sent": {
+          "v1": 2028921,
+          "v2": 48138
+        },
+        "promptText": 9124
+      },
+      "measurements": [
+        {
+          "name": "read/validate v1",
+          "iterations": 15,
+          "medianMs": 6.406,
+          "p95Ms": 14.409
+        },
+        {
+          "name": "read/validate v2",
+          "iterations": 15,
+          "medianMs": 3.39,
+          "p95Ms": 3.993
+        },
+        {
+          "name": "prepare v1 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 49.4,
+          "p95Ms": 71.595
+        },
+        {
+          "name": "prepare v2 including validation/encoding",
+          "iterations": 15,
+          "medianMs": 40.519,
+          "p95Ms": 49.609
+        }
+      ],
+      "hostLockedEditWithAtomicRename": {
+        "v1": {
+          "iterations": 10,
+          "medianMs": 84.197,
+          "p95Ms": 96.836
+        },
+        "v2": {
+          "iterations": 10,
+          "medianMs": 25.663,
+          "p95Ms": 50.949
+        }
+      }
+    }
+  ]
+}

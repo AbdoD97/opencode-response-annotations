@@ -59,11 +59,11 @@ test('real renderer: successful Send closes only after admission and durable sen
     const input = h.controls.calls[0]
     expect(input.sessionID).toBe('a'); expect(input.delivery).toBe('queue')
     expect(input.metadata).toEqual({ annotationBatch: input.id })
-    expect(input.text).toContain('UNSELECTED_SOURCE_CONTEXT')
+    expect(input.text).not.toContain('UNSELECTED_SOURCE_CONTEXT')
     expect(input.text).not.toContain('SIBLING_SOURCE_CONTEXT')
     expect(input.text).toContain('## Annotation #1')
     expect(input.text).not.toContain('msg_source')
-    expect(h.controls.confirmMessages[0]).toContain('Full source snapshots stay local')
+    expect(h.controls.confirmMessages[0]).toContain('no nearby excerpts are added')
     admission.resolve(admitted(input))
     await h.screen.waitFor(() => h.controls.updates === 2)
     expect(h.controls.closes).toBe(0); expect(h.state.notes).toHaveLength(2)

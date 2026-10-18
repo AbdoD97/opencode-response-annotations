@@ -23,20 +23,24 @@ No OpenCode fork/core build, browser extension, API key or separate model is nee
 3. Enter a comment, or leave it empty for a highlight-only note. Enter commits; cancel saves nothing.
 4. The sidebar opens with numbered pending notes. Repeat the original-transcript selection to stack more. `/annotate` or **Review pending annotations** reopens the queue. The compact composer row reports the pending count without reading or changing its draft.
 5. Focus/click the sidebar and press **e** to select a note, edit its comment or remove it. Numbers are stable per session and deleted numbers are not reused. **Esc** closes the panel; **f** changes its presentation; **h** lists saved sent references.
-6. **Ctrl+S** opens the explicit **Send batch** confirmation. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. New batches send readable numbered quotes and optional comments, with a small nearby excerpt where needed. Full source snapshots, message/part identities and UTF-16 offsets stay in local saved notes. Reasoning and tool internals are excluded.
+6. **Ctrl+S** opens the explicit **Send batch** confirmation. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. New batches send only readable numbered exact quotes and optional comments, once per annotation, with one shared instruction paragraph. Full source snapshots, message/part identities and UTF-16 offsets stay local. No automatic excerpts, model tools, extra sessions or model-only transforms are added.
 7. The sidebar hides **only after matching prompt admission is returned and sent state is durably saved**. This is admission, not proof the model has finished answering. Failure or uncertainty keeps the batch/notes available.
 
 The main composer's unsent text, attachments and uncommitted model/agent selections are not merged into this separate batch. No model call occurs while highlighting, commenting, editing or deleting.
 
-## Readable, compact batches (0.2.1)
+## Quote-only batches and optional deduplicated storage (0.3.0)
 
 New batches begin with numbered selected quotes and optional comments instead of raw JSON or internal IDs. Quotes/comments are sent in full, inside literal Markdown fences that safely contain any backticks in the content. Empty comments are labeled as highlight-only notes.
 
-Full selected and sibling response snapshots remain local. For a short selection (under 80 UTF-16 units), the batch may include one nearby excerpt per selected source part: the quote plus at most 80 UTF-16 units on each side, trimmed at grapheme boundaries. Multiple or overlapping notes on the same source share that excerpt. Long selected quotes are never silently shortened. If a quote/context is insufficient to identify an earlier reply, the instructions ask for clarification instead of relying on opaque message IDs.
+Full selected and sibling response snapshots remain local. Automatic nearby excerpts and the invented `Response N` grouping labels from 0.2.1 are removed from new batches. Quotes/comments are never silently shortened, including Unicode or Markdown delimiters. If a quote is insufficient to identify an earlier reply, the instructions ask for clarification; there is no source resolver or guarantee of retrieval after compaction.
 
-The inspected public OpenCode 2.0.32 `session.prompt` API supplies one `text` field, without separate display/model text fields. The readable message is therefore also the submitted prompt text. Local response labels group sources; they are not transcript message numbers. This reduces client payload size, not a guarantee about final server prompts, billing or answer quality.
+The inspected public OpenCode 2.0.32 `session.prompt` API supplies one `text` field, without separate display/model text fields. The readable message is therefore also the submitted prompt text. The fixed request envelope, historical messages, system text, tool catalog, provider routing and cache options are not changed by this plugin. Client payload reduction is not proof about final server prompts, billing, cache hits or answer quality.
 
-The `annotations-v1` storage schema is unchanged. Existing sent history stays intact, and prepared/uncertain batches retry their exact saved ID and text, even if that text uses the previous JSON/full-context format. Only newly prepared batches use the compact format.
+The `annotations-v1` storage key is retained. Existing nonempty v1 files continue to work without migration: they get the new formatter and validation, but keep their old local snapshot duplication. Optional schema v2 stores each immutable source revision once and references it from notes/history. Its hash binds session, message, original content-part index, selected snapshot and all sibling snapshots; differing sibling revisions are not merged. Coordinates are explicitly UTF-16 within the selected part, with an exclusive end.
+
+Migration is never automatic. Do not convert a live store while an older window is running. The offline tool verifies a byte-exact backup before replacement and supports a lossless v1 export for rollback. Existing sent history and every prepared batch's ID, text, time, note IDs/numbers/comments/provenance remain intact. The prepared payload may still contain old JSON or excerpts because uncertain retries must not be reformatted. See [STORAGE.md](STORAGE.md) for initialization, opt-in migration, recovery and rollback.
+
+Unreadable/malformed state, invalid revision graphs and ambiguous completely empty v1 state block annotation mutations and sends. The host's invalid initial sentinel, and the known empty fallback of a cached older plugin generation, are both refused. New installations require explicit offline initialization; valid empty legacy files can be migrated offline. Never reset or delete a corrupt store to bypass recovery.
 
 Run `node script/measure-payloads.ts` for synthetic before/after byte measurements and the explicitly labeled token heuristic. No host/model request is made by this measurement.
 
@@ -50,7 +54,7 @@ Selections containing removed Markdown syntax, altered whitespace/table layout, 
 
 ## Durability and safety
 
-- Same `annotations-v1` storage key/schema as the earlier prototype: existing pending notes and uncertain/sent batches are retained without migration or deletion.
+- Same `annotations-v1` storage key, with validated v1/v2 readers. No automatic schema migration, old-message rewrite or history pruning.
 - Host durable JSON storage writes atomically before updating live state. A prepared batch is saved with a stable ID before admission. Unknown-outcome retries reuse the identical ID and payload; the inspected V2 admission API is idempotent.
 - Prepared batches are frozen against edit/removal. This version has no discard or manual reconciliation UI. Never delete an uncertain batch just to retry under a new ID.
 - Failed prepared-state writes prevent sending; failed sent-state writes retain the retry batch and do not hide the sidebar. Returned admission ID/session/type are checked.
@@ -65,8 +69,10 @@ npm ci
 npm test
 npm run typecheck
 npm run test:panel
+npm run test:host
 npm run build
 npm run benchmark
+npm run benchmark:storage
 ```
 
 Tests include the real OpenTUI renderer with fixture host APIs, actual native Selection objects, local commits, queue editing, durable-failure simulations and admission uncertainty. See [VALIDATION.md](VALIDATION.md) for actual isolated-host mouse/keyboard/restart results and what remains untested. [PARITY.md](PARITY.md) distinguishes implemented behavior from limitations; [REFERENCE-BEHAVIOR.md](REFERENCE-BEHAVIOR.md) records independently inspected reference behavior.

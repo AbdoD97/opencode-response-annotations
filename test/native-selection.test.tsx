@@ -31,12 +31,13 @@ import plugin from '../src/tui.tsx'
 import { createRoot } from 'solid-js'
 import { createStore, produce } from 'solid-js/store'
 import { initialState } from '../src/model.ts'
+import { migrateStoredState } from '../src/storage.ts'
 import type { Context } from '@opencode/plugin/tui/context'
 
 test('native release captured before host clears selection; commit local only, cancel and revert invalidate', async () => {
   let markdown!: MarkdownRenderable
   const screen=await testRender(()=><box id="msg_native"><box><markdown ref={markdown} content="Alpha beta gamma." syntaxStyle={SyntaxStyle.create()} streaming={false}/></box></box>,{width:80,height:12})
-  const [state,setState]=createStore(initialState())
+  const [state,setState]=createStore(migrateStoredState(initialState()))
   const [session,setSession]=createStore({revert: false})
   let commands: Array<{id?:string;run:()=>Promise<void>}> = []
   let comment: string|undefined='Explain this'
