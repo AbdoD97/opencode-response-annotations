@@ -1,5 +1,28 @@
 # Validation record
 
+## Readable compact batches, 0.2.1 (2026-10-18)
+
+Validated on Windows VM DESKTOP-49DSGUK with official `@opencode/cli` 2.0.32, Node 24.19.0 and Bun 1.4.3. This change does not alter selection capture, model routing or the `annotations-v1` storage schema. No real batch was sent or replayed during this validation.
+
+- 29 Node domain/selection/bounds tests pass using `node --test --test-isolation=none test/*.test.ts`; the sandbox blocks the default runner's child process isolation.
+- 31 real OpenTUI renderer tests pass, 349 assertions, using the existing fixture dialogs/storage/admission APIs. These include failed admission/restart of an old prepared JSON payload with identical ID/text; the existing uncertain-admission, failed write, cancellation and success-only hide checks also pass with new formatting.
+- Typecheck passes. The build and installed artifact hashes are recorded with the VM installation evidence.
+- Formatting regressions cover empty comments, stable/gapped numbers, multiple sources, overlapping notes, exact Unicode/CRLF/whitespace, Markdown delimiter containment, bounded grapheme-safe source excerpts, local full-snapshot retention and byte-for-byte old/new prepared retries.
+
+Synthetic client payload comparison from `node script/measure-payloads.ts`:
+
+| Fixture | v0.2.0 prompt text bytes | v0.2.1 prompt text bytes | Reduction | Estimated text tokens, old → new |
+|---|---:|---:|---:|---:|
+| 1 note / 10K response | 20,843 | 633 | 96.96% | 5,211 → 159 |
+| 5 notes / same 100K response | 201,559 | 1,053 | 99.48% | 50,390 → 264 |
+| 6 notes / 2 selected parts / same 3-part 120K response | 322,234 | 1,527 | 99.53% | 80,559 → 382 |
+
+The explicit token estimator is `ceil(UTF-8 text bytes / 4)`, a coarse English-oriented heuristic, not a model tokenizer. The script also reports JSON-encoded `session.prompt` argument sizes. These are synthetic client construction measurements, not captured HTTP traffic, final server/model context, billing or proof of answer quality. Full snapshots still consume local storage; they are no longer automatically repeated in new prompts.
+
+The pinned public `SessionPromptInput`/protocol schema was inspected: one `text` field plus transport fields/attachments, with no supported separate display/model text. No private API or host rendering override is used.
+
+The user separately reported successful Windows launch, command-palette selection capture, pending queue and a sent batch, and reported that Ctrl+Shift+A did not work. This is user-reported live evidence, not independent UI verification. No Windows terminal mouse/keyboard automation or live send was performed for 0.2.1. Command palette remains the fallback; no keybindings or terminal settings were changed.
+
 ## Corrected native-transcript workflow (2026-10-17)
 
 Tested package in an isolated official OpenCode **2.0.32** Linux CLI, with a synthetic imported assistant response:

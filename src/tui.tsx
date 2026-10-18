@@ -121,9 +121,8 @@ export function AnnotationPanel(props: { context: Context; panel: PanelInput; st
     const count = existing?.notes.length ?? notes().length
     if (!count) throw new Error('No pending annotations')
     if (context.data.session.get(sessionID)?.revert) throw new Error('Resolve the session revert before sending annotations')
-    const sourceCharacters = [...new Map((existing?.notes ?? notes()).map(n => [`${n.source.messageID}:${n.source.part}`, n.source.text.length])).values()].reduce((a,b)=>a+b,0)
     const confirmed = await context.ui.dialog.confirm({ title: existing ? 'Retry the same annotation batch?' : 'Send annotation batch?',
-      message: `Send ${count} annotations and full source snapshots (${sourceCharacters.toLocaleString()} selected-source characters, plus sibling text parts) to this session's configured agent/model? This can use model tokens. The main composer draft will remain untouched. ${existing ? 'The previous result was uncertain; the same message ID prevents duplicate admission.' : ''}`,
+      message: `Send ${count} annotations to this session's configured agent/model? This can use model tokens. ${existing ? 'The saved payload will be retried unchanged, including any older formatting or full source context. The previous result was uncertain; the same message ID prevents duplicate admission.' : 'Only selected quotes, optional comments and short nearby context where needed will be sent. Full source snapshots stay local.'} The main composer draft will remain untouched.`,
       label: { confirm: 'Send batch', cancel: 'Keep editing' },
     })
     if (!confirmed || !current()) return

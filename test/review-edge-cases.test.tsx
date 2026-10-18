@@ -1,8 +1,31 @@
 import { test, expect } from 'bun:test'
 import { deferred, harness, fixtureState, admitted } from './panel-harness.tsx'
-import { addNote, editNote } from '../src/model.ts'
+import { addNote, editNote, makeBatch } from '../src/model.ts'
 
 // All admissions are mocked. These verify component ordering/retention, not a live model.
+test('legacy prepared JSON retries unchanged after failed admission and restart', async () => {
+  const state = fixtureState(), legacy = makeBatch(state, 'a', 'msg_legacy_batch', 1)
+  legacy.text = 'Legacy batch\n\n{"format":"opencode-response-annotations/v1","quote":"alpha"}'
+  const originalText = legacy.text
+  const h = await harness(state)
+  let restored = state
+  try {
+    h.controls.prompt = async () => { throw new Error('Unknown admission outcome') }
+    await h.key('ctrl+s')
+    await h.screen.waitFor(() => h.controls.errors.length > 0)
+    expect(h.controls.calls[0].id).toBe(legacy.id); expect(h.controls.calls[0].text).toBe(originalText)
+    expect(h.controls.confirmMessages[0]).toContain('saved payload will be retried unchanged')
+    expect(h.controls.closes).toBe(0); expect(h.state.notes).toHaveLength(1)
+    restored = h.persisted()
+  } finally { h.destroy() }
+  const r = await harness(restored)
+  try {
+    await r.key('ctrl+s'); await r.screen.waitFor(() => r.controls.closes === 1)
+    expect(r.controls.calls[0].id).toBe(legacy.id); expect(r.controls.calls[0].text).toBe(originalText)
+    expect(r.persisted().batches[0].text).toBe(originalText)
+    expect(r.persisted().batches[0].status).toBe('sent')
+  } finally { r.destroy() }
+})
 test('review: repeated send during confirmation admits only one batch', async () => {
   const h = await harness(); const gate = deferred<boolean>()
   try {

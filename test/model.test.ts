@@ -18,11 +18,11 @@ test('graphemes, whitespace, newline and trailing cursor positions preserved', (
  assert.throws(()=>addNote(initialState(),source,11,12,'','bad'))
  assert.throws(()=>addNote(initialState(),source,0,0,'','bad'))
 })
-test('snapshot survives drift and includes full unselected context once', () => {
+test('snapshot and precise offsets remain local while one bounded source excerpt is sent', () => {
  const s=initialState(); addNote(s,source,0,4,'first','1'); addNote(s,source,5,9,'second','2')
- const b=makeBatch(s,'session-a','batch',1); const payload=JSON.parse(b.text.slice(b.text.indexOf('{')))
- assert.equal(payload.sources.length,1); assert.equal(payload.sources[0].fullTextSnapshot,source.text)
- assert.equal(payload.annotations[1].startUTF16,5); assert.equal(b.notes[0].source.text,source.text)
+ const b=makeBatch(s,'session-a','batch',1)
+ assert.equal(b.text.split('Response 1, near annotation').length,2); assert.ok(b.text.includes(source.text))
+ assert.equal(b.notes[1].start,5); assert.equal(b.notes[0].source.text,source.text)
 })
 test('edit/remove and durable JSON restoration',()=>{
  const s=initialState(); addNote(s,source,0,4,'','1'); editNote(s,'1','updated')
@@ -35,9 +35,10 @@ test('prepared submission is idempotent; failed send retains notes; new notes su
  addNote(s,source,5,9,'','2'); addNote(s,{...source,sessionID:'b'},0,4,'','3')
  markSent(s,'batch'); assert.deepEqual(s.notes.map(n=>n.id),['2','3']); assert.equal(s.batches[0].status,'sent')
 })
-test('full sibling response text parts are retained without thinking or tools',()=>{
+test('full sibling response text parts stay local instead of being injected',()=>{
  const s=initialState(); const full={...source,responseParts:[{part:0,text:'Earlier explanation'},{part:2,text:source.text},{part:4,text:'Conclusion'}]}
  addNote(s,full,5,9,'','a');const b=makeBatch(s,source.sessionID,'batch',1)
- const payload=JSON.parse(b.text.slice(b.text.indexOf('{')))
- assert.deepEqual(payload.sources[0].fullAssistantTextParts,full.responseParts)
+ assert.deepEqual(b.notes[0].source.responseParts,full.responseParts)
+ assert.ok(!b.text.includes('Earlier explanation'));assert.ok(!b.text.includes('Conclusion'))
+ assert.equal(b.text.split(source.text).length,2)
 })

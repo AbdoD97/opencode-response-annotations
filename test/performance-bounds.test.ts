@@ -21,7 +21,7 @@ test('source/comment/pending limits refuse without changing saved notes or numbe
 })
 test('oversize payload and legacy prepared batch remain intact and unsent',()=>{
   const s=initialState()
-  for(let i=0;i<6;i++)addNote(s,{...source('a'.repeat(99999)+i),messageID:`m${i}`,responseParts:[{part:0,text:'a'.repeat(100000)}]},0,1,'',`n${i}`)
+  for(let i=0;i<11;i++)addNote(s,{...source('a'.repeat(99998)+String(i).padStart(2,'0')),messageID:`m${i}`},0,100000,'',`n${i}`)
   const before=JSON.stringify(s);assert.throws(()=>makeBatch(s,'s','b',1),/1 MB/);assert.equal(JSON.stringify(s),before)
   s.batches.push({id:'legacy',sessionID:'s',notes:[],text:'a'.repeat(LIMITS.payloadBytes+1),status:'prepared',created:1})
   const legacy=JSON.stringify(s);assert.throws(()=>makeBatch(s,'s','retry',1),/preserved/);assert.equal(JSON.stringify(s),legacy)

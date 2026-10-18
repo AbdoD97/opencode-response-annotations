@@ -35,7 +35,7 @@ export async function harness(initial: State = fixtureState()) {
     prompt: async (input: Request): Promise<unknown> => admitted(input),
     beforeUpdate: async (_ordinal: number): Promise<void> => {},
     reverted: false, confirms: 0, updates: 0, closes: 0,
-    errors: [] as string[], calls: [] as Request[], events: [] as string[],
+    errors: [] as string[], calls: [] as Request[], events: [] as string[], confirmMessages: [] as string[],
   }
   const [panel, setPanel] = createStore({ name: 'response-annotations.review', sessionID: 'a', width: 80,
     presentation: 'panel', focused: true, focus: () => {},
@@ -47,7 +47,7 @@ export async function harness(initial: State = fixtureState()) {
     data: { session: { get: () => ({ revert: controls.reverted ? {} : undefined }) } },
     ui: { toast: { show: (x: { message: string }) => controls.errors.push(x.message) }, dialog: {
       select: (o: { options: Array<{ value: unknown }> }) => controls.select(o.options),
-      prompt: () => controls.comment(), confirm: () => { controls.confirms++; return controls.confirm() },
+      prompt: () => controls.comment(), confirm: (o: { message: string }) => { controls.confirms++; controls.confirmMessages.push(o.message); return controls.confirm() },
     } },
     client: { session: { prompt: async (input: Request) => {
       controls.calls.push(input); controls.events.push('prompt'); return controls.prompt(input)

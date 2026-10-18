@@ -45,3 +45,9 @@ Verified SHA-256 digests:
 No runtime interaction test, screenshots, exact visual-layout comparison, account availability check, cross-platform comparison, or exhaustive failure/concurrency test was performed on the reference application. The findings are a behavioral reading of shipped assets, not a supported public API or a claim of runtime parity for this project.
 
 This document is an original summary. No proprietary implementation code or extracted application assets are included in this project.
+
+## Request-construction follow-up (2026-10-18)
+
+A separate read-only inspection of the same 26.1013.40934 desktop assets reverified the above asset digests and traced the composer snapshot through the context serializer, prompt wrapper and request builder into `request.input`, then `turn/start` or `turn/addUserMessage`. The annotation section is a compact array of selected `text`, optional `annotation`, and optional `source` containing `messageId`, `startOffset` and `endOffset`, accompanied by one shared instruction paragraph. Full response/sibling snapshots, local annotation IDs and DOM anchors are absent from that serialized annotation section; richer state remains in local/draft storage.
+
+This follow-up is static request-construction evidence reported by the parallel researcher, not traffic captured on this VM or observation of a final server/model prompt. It supports retaining snapshots locally instead of automatically expanding them into prompts. It does not require this independent plugin to expose JSON, and OpenCode has no corresponding source-ID resolver established by this inspection. The plugin therefore sends self-contained readable quotes/comments with bounded context rather than opaque IDs alone.

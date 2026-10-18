@@ -8,7 +8,7 @@
 | Optional local comments | Explicit Annotate selection command, optional dialog, commit/cancel | Real native-selection fixture and actual empty-comment host commit |
 | Pending sidebar stack | Scrollable numbered notes only | No source-copy picker/editor; actual two-note docked stack |
 | Review/edit/delete | Pending note dialogs, stable numbering | Real renderer fixtures; uncertain prepared batches remain frozen |
-| Explicit batch send | One confirmed normal message with source context | Admission/storage fixtures; real host confirmation canceled without sending |
+| Explicit batch send | One confirmed readable message with exact quotes/comments and bounded nearby context; full provenance/snapshots stay local | Admission/storage fixtures; original host confirmation canceled without sending; 0.2.1 formatter and legacy retries covered by regressions |
 | Hide after successful send | Close only after validated admission + durable sent save | Renderer ordering/failure/race tests; no live model admission exercised |
 | Uncertain delivery | Stable prepared ID/text, retry identical batch | Admission mismatch, rejected/unknown outcome and failed sent-save/restart tests |
 | Existing saved notes | Same v1 key/schema, no destructive migration | JSON round-trip and prepared/sent-state fixtures |

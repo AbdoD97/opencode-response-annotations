@@ -14,7 +14,7 @@ Copy this package folder, including `tui.js`, `dist/` and `package.json`, into y
 
 Alternatively add the **absolute plugin directory** to your existing global V2 `cli.json` `plugins` array, preserving other settings. Usually this file is `$XDG_CONFIG_HOME/opencode/cli.json` or `~/.config/opencode/cli.json`. This global configuration route was tested in an isolated official host. Project `.opencode/cli.json` is not the global CLI configuration. Do not install this unpublished name from a package registry.
 
-No OpenCode fork/core build, browser extension, API key or separate model is needed for local annotation. Nothing has been installed on the user's computer.
+No OpenCode fork/core build, browser extension, API key or separate model is needed for local annotation.
 
 ## Workflow
 
@@ -23,10 +23,22 @@ No OpenCode fork/core build, browser extension, API key or separate model is nee
 3. Enter a comment, or leave it empty for a highlight-only note. Enter commits; cancel saves nothing.
 4. The sidebar opens with numbered pending notes. Repeat the original-transcript selection to stack more. `/annotate` or **Review pending annotations** reopens the queue. The compact composer row reports the pending count without reading or changing its draft.
 5. Focus/click the sidebar and press **e** to select a note, edit its comment or remove it. Numbers are stable per session and deleted numbers are not reused. **Esc** closes the panel; **f** changes its presentation; **h** lists saved sent references.
-6. **Ctrl+S** opens the explicit **Send batch** confirmation. It reports note count and source-character context. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. It sends all pending notes in one ordinary message, including exact quotes, optional comments, source message/part indices, UTF-16 offsets and full selected/sibling text snapshots. Reasoning and tool internals are excluded.
+6. **Ctrl+S** opens the explicit **Send batch** confirmation. Cancel keeps the queue. Sending uses the session's configured agent/model and may incur token usage. New batches send readable numbered quotes and optional comments, with a small nearby excerpt where needed. Full source snapshots, message/part identities and UTF-16 offsets stay in local saved notes. Reasoning and tool internals are excluded.
 7. The sidebar hides **only after matching prompt admission is returned and sent state is durably saved**. This is admission, not proof the model has finished answering. Failure or uncertainty keeps the batch/notes available.
 
 The main composer's unsent text, attachments and uncommitted model/agent selections are not merged into this separate batch. No model call occurs while highlighting, commenting, editing or deleting.
+
+## Readable, compact batches (0.2.1)
+
+New batches begin with numbered selected quotes and optional comments instead of raw JSON or internal IDs. Quotes/comments are sent in full, inside literal Markdown fences that safely contain any backticks in the content. Empty comments are labeled as highlight-only notes.
+
+Full selected and sibling response snapshots remain local. For a short selection (under 80 UTF-16 units), the batch may include one nearby excerpt per selected source part: the quote plus at most 80 UTF-16 units on each side, trimmed at grapheme boundaries. Multiple or overlapping notes on the same source share that excerpt. Long selected quotes are never silently shortened. If a quote/context is insufficient to identify an earlier reply, the instructions ask for clarification instead of relying on opaque message IDs.
+
+The inspected public OpenCode 2.0.32 `session.prompt` API supplies one `text` field, without separate display/model text fields. The readable message is therefore also the submitted prompt text. Local response labels group sources; they are not transcript message numbers. This reduces client payload size, not a guarantee about final server prompts, billing or answer quality.
+
+The `annotations-v1` storage schema is unchanged. Existing sent history stays intact, and prepared/uncertain batches retry their exact saved ID and text, even if that text uses the previous JSON/full-context format. Only newly prepared batches use the compact format.
+
+Run `node script/measure-payloads.ts` for synthetic before/after byte measurements and the explicitly labeled token heuristic. No host/model request is made by this measurement.
 
 ## Selection limits and source provenance
 
