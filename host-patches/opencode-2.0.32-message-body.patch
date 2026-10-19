@@ -1,0 +1,1347 @@
+diff --git a/bun.lock b/bun.lock
+index 3a24250bc..3c9680c2d 100644
+--- a/bun.lock
++++ b/bun.lock
+@@ -317,6 +317,7 @@
+         "@parcel/watcher-win32-x64": "2.5.1",
+         "@tsconfig/bun": "catalog:",
+         "@types/bun": "catalog:",
++        "@types/mime-types": "3.0.1",
+         "@types/node": "catalog:",
+         "@types/which": "3.0.4",
+         "drizzle-kit": "catalog:",
+@@ -849,6 +850,7 @@
+         "uqr": "0.1.3",
+       },
+       "devDependencies": {
++        "@opencode/ai": "workspace:*",
+         "@tsconfig/bun": "catalog:",
+         "@types/bun": "catalog:",
+         "@typescript/native": "catalog:",
+@@ -921,6 +923,7 @@
+         "@tsconfig/bun": "catalog:",
+         "@types/bun": "catalog:",
+         "@types/cross-spawn": "catalog:",
++        "@types/mime-types": "3.0.1",
+         "@types/node": "catalog:",
+         "@types/npm-package-arg": "6.1.4",
+         "@types/npmcli__arborist": "6.3.3",
+diff --git a/bunfig.toml b/bunfig.toml
+index 37701acf8..76880811a 100644
+--- a/bunfig.toml
++++ b/bunfig.toml
+@@ -1,5 +1,7 @@
+ [install]
+ exact = true
++# Host UI packages share Solid/OpenTUI identity in this isolated Windows build.
++linker = "hoisted"
+ # Only install newly resolved package versions published at least 3 days ago.
+ minimumReleaseAge = 259200
+ minimumReleaseAgeExcludes = ["@ai-sdk/amazon-bedrock", "@ai-sdk/anthropic", "@brendonovich/vite-plugin-opencode", "@kitlangton/solid-motion", "@opencode/sdk", "@opencode-ai/pty", "@opencode-ai/pty-darwin-arm64", "@opencode-ai/pty-darwin-x64", "@opencode-ai/pty-linux-arm64-gnu", "@opencode-ai/pty-linux-arm64-musl", "@opencode-ai/pty-linux-x64-gnu", "@opencode-ai/pty-linux-x64-musl", "@opentui/core", "@opentui/core-darwin-arm64", "@opentui/core-darwin-x64", "@opentui/core-linux-arm64", "@opentui/core-linux-arm64-musl", "@opentui/core-linux-x64", "@opentui/core-linux-x64-musl", "@opentui/core-win32-arm64", "@opentui/core-win32-x64", "@opentui/keymap", "@opentui/solid", "@opentunnel/client", "@opentunnel/protocol", "opentui-spinner", "gitlab-ai-provider", "opencode-gitlab-auth", "@ff-labs/fff-node", "@ff-labs/fff-bun", "@ff-labs/fff-bin-darwin-arm64", "@ff-labs/fff-bin-darwin-x64", "@ff-labs/fff-bin-linux-arm64-gnu", "@ff-labs/fff-bin-linux-arm64-musl", "@ff-labs/fff-bin-linux-x64-gnu", "@ff-labs/fff-bin-linux-x64-musl", "@ff-labs/fff-bin-win32-arm64", "@ff-labs/fff-bin-win32-x64", "@pierre/diffs", "@pierre/theming", "app-builder-lib", "dmg-builder", "electron", "electron-builder", "electron-publish", "blume", "mermaid"]
+diff --git a/packages/core/package.json b/packages/core/package.json
+index b88ea5bad..d929bd050 100644
+--- a/packages/core/package.json
++++ b/packages/core/package.json
+@@ -75,6 +75,7 @@
+     }
+   },
+   "devDependencies": {
++    "@types/mime-types": "3.0.1",
+     "@ai-sdk/openai-compatible": "2.0.41",
+     "@effect/platform-node": "catalog:",
+     "@effect/sql-sqlite-bun": "catalog:",
+diff --git a/packages/plugin/src/tui/context.ts b/packages/plugin/src/tui/context.ts
+index fe641b39d..a9c392650 100644
+--- a/packages/plugin/src/tui/context.ts
++++ b/packages/plugin/src/tui/context.ts
+@@ -1,3 +1,4 @@
++import type { MessageBodyAPI } from "./message-body"
+ import type {
+   AgentInfo,
+   CommandInfo,
+@@ -487,7 +488,17 @@ export interface Keymap {
+   }
+ }
+ 
++export type {
++  MessageBodyAPI,
++  MessageBodyInput,
++  MessageBodyPlan,
++  MessageBodyPresenter,
++  MessageBodyRange,
++  MessageBodySource,
++} from "./message-body"
++
+ export interface UI {
++  readonly messageBody?: MessageBodyAPI
+   readonly dialog: Dialog
+   readonly toast: Toast
+   readonly format: {
+diff --git a/packages/plugin/src/tui/message-body.ts b/packages/plugin/src/tui/message-body.ts
+new file mode 100644
+index 000000000..047b359c1
+--- /dev/null
++++ b/packages/plugin/src/tui/message-body.ts
+@@ -0,0 +1,35 @@
++/** Local presentation only. Ranges refer to the canonical user-message text,
++ * in UTF-16 code units on grapheme boundaries. No callbacks or JSX in plans. */
++export type MessageBodySource = {
++  readonly sessionID: string
++  readonly messageID: string
++  readonly revision: number
++}
++export type MessageBodyRange = { readonly start: number; readonly end: number }
++export type MessageBodyInput = {
++  readonly source: MessageBodySource
++  readonly text: string
++  readonly metadata?: Readonly<Record<string, unknown>>
++}
++export type MessageBodyPlan = {
++  readonly source: MessageBodySource
++  readonly label: string
++  readonly items: readonly {
++    readonly key: string
++    readonly label: string
++    readonly preview: MessageBodyRange
++    readonly sections: readonly { readonly label: string; readonly range: MessageBodyRange }[]
++  }[]
++}
++export type MessageBodyPresenter = {
++  readonly name: string
++  /** Synchronous Solid computation: may read local reactive state, never submit.
++   * Return undefined for messages this plugin does not own. */
++  readonly present: (input: MessageBodyInput) => MessageBodyPlan | undefined
++}
++export type MessageBodyAPI = {
++  readonly version: 1
++  /** Owned by this plugin; disposed on disable/reload. More than one matching
++   * presenter, invalid output, or an exception restores canonical plain text. */
++  register(presenter: MessageBodyPresenter): () => void
++}
+diff --git a/packages/tui/package.json b/packages/tui/package.json
+index 97ff93941..c0a935a6e 100644
+--- a/packages/tui/package.json
++++ b/packages/tui/package.json
+@@ -73,6 +73,7 @@
+     "uqr": "0.1.3"
+   },
+   "devDependencies": {
++    "@opencode/ai": "workspace:*",
+     "@tsconfig/bun": "catalog:",
+     "@types/bun": "catalog:",
+     "@typescript/native": "catalog:"
+diff --git a/packages/tui/src/component/user-message-body.tsx b/packages/tui/src/component/user-message-body.tsx
+new file mode 100644
+index 000000000..4ae967d73
+--- /dev/null
++++ b/packages/tui/src/component/user-message-body.tsx
+@@ -0,0 +1,238 @@
++import { For, Show, createMemo, createSignal, onCleanup } from "solid-js"
++import { BoxRenderable, ScrollBoxRenderable, type MouseEvent, type Renderable } from "@opentui/core"
++import { useRenderer } from "@opentui/solid"
++import type { MessageBodyInput, MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
++import { Keymap } from "../context/keymap"
++import { useTheme } from "../context/theme"
++import { bodyDisplay, bodyPreview, resolveMessageBody } from "../plugin/message-body"
++
++export type MessageBodyControl = { available(): boolean; focus(): void; original(): void }
++
++/** The host owns the body and all interactions. The enclosing native message
++ * row (delivery/actions/files/images) is deliberately outside this component. */
++export function UserMessageBody(props: {
++  sessionID: string
++  messageID: string
++  text: string
++  metadata?: Readonly<Record<string, unknown>>
++  presenters: readonly MessageBodyPresenter[]
++  control?: (value: MessageBodyControl | undefined) => void
++}) {
++  const renderer = useRenderer()
++  const theme = useTheme()
++  let revision = 0
++  const canonical = createMemo(
++    () => ({ sessionID: props.sessionID, messageID: props.messageID, text: props.text }),
++    undefined,
++    {
++      equals: (previous, next) =>
++        previous?.sessionID === next.sessionID && previous.messageID === next.messageID && previous.text === next.text,
++    },
++  )
++  const source = createMemo(() => {
++    // Reading all canonical identity fields invalidates cached plans on edits,
++    // reuse of a mounted row, and pending-to-delivered replacements.
++    const value = canonical()
++    return {
++      source: { sessionID: value.sessionID, messageID: value.messageID, revision: ++revision },
++      text: value.text,
++    }
++  })
++  const plan = createMemo(
++    () => resolveMessageBody({ ...source(), metadata: props.metadata } satisfies MessageBodyInput, props.presenters),
++    undefined,
++    {
++      // Plans contain only bounded host-copied scalar data. Equivalent resyncs
++      // must not remount selected text, lose focus or reset disclosure state.
++      equals: (previous, next) => JSON.stringify(previous) === JSON.stringify(next),
++    },
++  )
++  const identity = createMemo(() => (plan() ? source().source : undefined))
++  const body = createMemo(() => ({
++    identity: identity(),
++    expanded: new Set<string>(),
++    original: false,
++    active: 0,
++    headers: new Map<string, Renderable>(),
++  }))
++  const [change, setChange] = createSignal(0)
++  let root: BoxRenderable | undefined
++  let previous: Renderable | null = null
++  let needsReveal = false
++  let pressed: { x: number; y: number } | undefined
++  const read = () => {
++    change()
++    return body()
++  }
++  const active = () => Math.min(read().active, Math.max(0, (plan()?.items.length ?? 1) - 1))
++  const reveal = () => {
++    if (!root?.focused || renderer.getSelection()?.getSelectedText() || body().original) return
++    const header = body().headers.get(plan()?.items[active()]?.key ?? "")
++    if (!header || header.isDestroyed) return
++    let ancestor = root.parent
++    for (let depth = 0; ancestor && depth < 64; depth++, ancestor = ancestor.parent) {
++      if (!(ancestor instanceof ScrollBoxRenderable)) continue
++      const top = ancestor.viewport.y
++      const bottom = top + ancestor.viewport.height
++      const delta =
++        header.y < top ? header.y - top : header.y + header.height > bottom ? header.y + header.height - bottom : 0
++      if (delta) ancestor.scrollBy({ x: 0, y: delta })
++      return
++    }
++  }
++  const select = (index: number) => {
++    body().active = index
++    needsReveal = true
++    setChange((value) => value + 1)
++  }
++  const focus = () => {
++    if (!root || root.isDestroyed) return
++    if (!root.focused) previous = renderer.currentFocusedRenderable
++    needsReveal = true
++    root.focus()
++  }
++  const restore = () => {
++    if (previous && !previous.isDestroyed) previous.focus()
++    else root?.blur()
++    previous = null
++  }
++  const toggle = (key: string) => {
++    const state = body()
++    if (state.expanded.has(key)) state.expanded.delete(key)
++    else state.expanded.add(key)
++    setChange((value) => value + 1)
++  }
++  const original = () => {
++    body().original = !body().original
++    setChange((value) => value + 1)
++  }
++  const click = (event: MouseEvent, action: () => void) => {
++    const start = pressed
++    pressed = undefined
++    if (
++      event.button !== 0 ||
++      !start ||
++      start.x !== event.x ||
++      start.y !== event.y ||
++      renderer.getSelection()?.getSelectedText()
++    )
++      return
++    event.stopPropagation()
++    action()
++    focus()
++  }
++  Keymap.createLayer(() => ({
++    target: () => root,
++    enabled: !!plan(),
++    priority: 100,
++    commands: [
++      {
++        bind: "return,space",
++        run: () => {
++          const item = plan()?.items[active()]
++          if (item && !body().original) toggle(item.key)
++        },
++      },
++      { bind: "down", run: () => select(Math.min((plan()?.items.length ?? 1) - 1, active() + 1)) },
++      { bind: "up", run: () => select(Math.max(0, active() - 1)) },
++      { bind: "o", run: original },
++      { bind: "escape", run: restore },
++    ],
++  }))
++  props.control?.({ available: () => !!plan(), focus, original })
++  onCleanup(() => {
++    if (root?.focused) restore()
++    props.control?.(undefined)
++  })
++  return (
++    <Show when={plan()} fallback={<text fg={theme.text.base}>{props.text}</text>}>
++      {(presentation) => {
++        onCleanup(() => {
++          if (root?.focused) restore()
++          root = undefined
++        })
++        return (
++          <box
++            id={`message-body:${props.messageID}`}
++            ref={(value) => {
++              root = value
++              value.focusable = true
++            }}
++            onSizeChange={() => {
++              needsReveal = true
++            }}
++            renderAfter={() => {
++              if (needsReveal) {
++                needsReveal = false
++                reveal()
++              }
++            }}
++            flexDirection="column"
++            gap={0}
++          >
++            <text fg={theme.text.muted} selectable={false}>
++              {presentation().label} · ↑↓ select · Enter/Space expand · o original · Esc return
++            </text>
++            <text
++              id={`body-original:${props.messageID}`}
++              fg={theme.text.base}
++              onMouseDown={(event) => {
++                pressed = { x: event.x, y: event.y }
++              }}
++              onMouseUp={(event) => click(event, original)}
++            >
++              {read().original ? "▾ Original message · fold notes" : "▸ Show original message"}
++            </text>
++            <Show
++              when={read().original}
++              fallback={
++                <For each={presentation().items}>
++                  {(item, index) => (
++                    <box flexDirection="column">
++                      <text
++                        id={`body-note:${props.messageID}:${item.key}`}
++                        fg={theme.text.base}
++                        ref={(value) => body().headers.set(item.key, value)}
++                        onMouseDown={(event) => {
++                          pressed = { x: event.x, y: event.y }
++                        }}
++                        onMouseUp={(event) =>
++                          click(event, () => {
++                            select(index())
++                            toggle(item.key)
++                          })
++                        }
++                      >
++                        {`${active() === index() ? ">" : " "} ${read().expanded.has(item.key) ? "▾" : "▸"} ${item.label}  ${bodyPreview(props.text.slice(item.preview.start, item.preview.end))}`}
++                      </text>
++                      <Show when={read().expanded.has(item.key)}>
++                        <box paddingLeft={3} flexDirection="column">
++                          <For each={item.sections}>
++                            {(section) => (
++                              <box flexDirection="column">
++                                <text fg={theme.text.muted} selectable={false}>
++                                  {section.label}
++                                </text>
++                                <text fg={theme.text.base} wrapMode="word">
++                                  {bodyDisplay(props.text.slice(section.range.start, section.range.end))}
++                                </text>
++                              </box>
++                            )}
++                          </For>
++                        </box>
++                      </Show>
++                    </box>
++                  )}
++                </For>
++              }
++            >
++              <text fg={theme.text.base} wrapMode="word">
++                {props.text}
++              </text>
++            </Show>
++          </box>
++        )
++      }}
++    </Show>
++  )
++}
+diff --git a/packages/tui/src/plugin/api.tsx b/packages/tui/src/plugin/api.tsx
+index 35a4eac6e..f386b0a6b 100644
+--- a/packages/tui/src/plugin/api.tsx
++++ b/packages/tui/src/plugin/api.tsx
+@@ -1,4 +1,5 @@
+ import { PluginContextProvider } from "@opencode/plugin/tui"
++import type { MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
+ import { createRoot, createUniqueId, getOwner, onCleanup, runWithOwner, untrack, type JSX } from "solid-js"
+ import type {
+   Context,
+@@ -51,11 +52,12 @@ const placements = ["prepend", "append", "before", "after", "replace"] as const
+ // route/slot registration lands there, but ordering and lifecycle stay owned
+ // by the provider.
+ export type Registry = {
+-  has(kind: "routes" | "slots" | "markdown", name: string): boolean
++  has(kind: "routes" | "slots" | "markdown" | "messageBodies", name: string): boolean
+   set(kind: "routes", name: string, page: Page): void
+   set(kind: "slots", name: string, claim: RegisteredSlot): void
+   set(kind: "markdown", name: string, render: MarkdownCodeBlockRenderer): void
+-  remove(kind: "routes" | "slots" | "markdown", name: string): void
++  set(kind: "messageBodies", name: string, presenter: MessageBodyPresenter): void
++  remove(kind: "routes" | "slots" | "markdown" | "messageBodies", name: string): void
+   active(): boolean
+ }
+ 
+@@ -132,7 +134,7 @@ export function createPluginContext(input: {
+   }
+   // Unregistering after deactivation is a no-op: deactivate already resets
+   // the registration's routes and slots wholesale.
+-  const registration = (kind: "routes" | "slots" | "markdown", name: string) => {
++  const registration = (kind: "routes" | "slots" | "markdown" | "messageBodies", name: string) => {
+     let registered = true
+     const unregister = () => {
+       if (!registered) return
+@@ -202,6 +204,17 @@ export function createPluginContext(input: {
+       memory: (key, options) => host.storage.memory(`plugin.${input.id}.${key}`, options),
+     },
+     ui: {
++      messageBody: {
++        version: 1,
++        register(presenter) {
++          if (!/^[a-z0-9][a-z0-9.-]{0,159}$/.test(presenter.name))
++            throw new Error("Invalid message-body presenter name")
++          if (input.registry.has("messageBodies", presenter.name))
++            throw new Error(`Message-body presenter already registered: ${presenter.name}`)
++          input.registry.set("messageBodies", presenter.name, { name: presenter.name, present: presenter.present })
++          return registration("messageBodies", presenter.name)
++        },
++      },
+       dialog: dialogApi,
+       toast: toastApi,
+       format: {
+diff --git a/packages/tui/src/plugin/context.tsx b/packages/tui/src/plugin/context.tsx
+index 31c4f4cea..08362f961 100644
+--- a/packages/tui/src/plugin/context.tsx
++++ b/packages/tui/src/plugin/context.tsx
+@@ -28,6 +28,7 @@ import { useClient } from "../context/client"
+ import { useData } from "../context/data"
+ import { errorMessage } from "../util/error"
+ import { createPluginContext, usePluginHost, type Dispose, type RegisteredSlot, type SlotRender } from "./api"
++import type { MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
+ import { createSourceWatcher } from "./watch"
+ import { discoverPluginTargets, localSource, mergePluginTargets } from "./discovery"
+ import { createPluginSources } from "./source"
+@@ -62,6 +63,7 @@ type Value = {
+     readonly resolved: () => ReturnType<typeof resolveSlots<SlotRender>>
+   }
+   readonly markdown: () => MarkdownOptions["renderNode"]
++  readonly messageBodies: () => readonly MessageBodyPresenter[]
+   readonly activate: (id: string) => Promise<boolean>
+   readonly deactivate: (id: string) => Promise<boolean>
+ }
+@@ -76,6 +78,7 @@ type Registration = {
+   routes: Record<string, Page>
+   slots: Record<string, RegisteredSlot>
+   markdown: Record<string, MarkdownCodeBlockRenderer>
++  messageBodies: Record<string, MessageBodyPresenter>
+   cleanups: Dispose[]
+ }
+ 
+@@ -145,6 +148,7 @@ export function PluginProvider(props: ParentProps<{ packages: PackageSource; dir
+     setStore("registrations", id, "routes", reconcileStore({}))
+     setStore("registrations", id, "slots", reconcileStore({}))
+     setStore("registrations", id, "markdown", reconcileStore({}))
++    setStore("registrations", id, "messageBodies", reconcileStore({}))
+   }
+ 
+   const activate = async (id: string) => {
+@@ -164,9 +168,9 @@ export function PluginProvider(props: ParentProps<{ packages: PackageSource; dir
+       registry: {
+         has: (kind, name) => Boolean(store.registrations[id]?.[kind][name]),
+         set: (
+-          kind: "routes" | "slots" | "markdown",
++          kind: "routes" | "slots" | "markdown" | "messageBodies",
+           name: string,
+-          value: Page | RegisteredSlot | MarkdownCodeBlockRenderer,
++          value: Page | RegisteredSlot | MarkdownCodeBlockRenderer | MessageBodyPresenter,
+         ) => setStore("registrations", id, kind, name, () => value),
+         remove: (kind, name) =>
+           setStore(
+@@ -608,6 +612,8 @@ export function PluginProvider(props: ParentProps<{ packages: PackageSource; dir
+         route: (id, name) => store.registrations[id]?.routes[name]?.render,
+         slots: { register: registerSlot, resolved },
+         markdown,
++        messageBodies: () =>
++          Object.values(store.registrations).flatMap((item) => (item.active ? Object.values(item.messageBodies) : [])),
+         // Manual dialog toggles join the same chain as reconciles so a
+         // toggle mid-reload cannot mix registrations across generations.
+         activate: (id) => enqueue(() => activate(id)),
+@@ -708,6 +714,7 @@ function toRegistration(item: Desired): Registration {
+     routes: {},
+     slots: {},
+     markdown: {},
++    messageBodies: {},
+     cleanups: [],
+   }
+ }
+diff --git a/packages/tui/src/plugin/message-body.ts b/packages/tui/src/plugin/message-body.ts
+new file mode 100644
+index 000000000..fb4c94974
+--- /dev/null
++++ b/packages/tui/src/plugin/message-body.ts
+@@ -0,0 +1,104 @@
++import type { MessageBodyInput, MessageBodyPlan, MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
++
++export const MESSAGE_BODY_LIMITS = { bytes: 1_000_000, items: 100, sections: 4, label: 160, preview: 80 } as const
++const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" })
++
++/** All checks happen at the extension boundary. A failed presenter never hides
++ * canonical text, and registration order cannot choose between competing plans. */
++export function resolveMessageBody(
++  input: MessageBodyInput,
++  presenters: readonly MessageBodyPresenter[],
++): MessageBodyPlan | undefined {
++  if (!presenters.length || input.text.length > MESSAGE_BODY_LIMITS.bytes) return
++  if (new TextEncoder().encode(input.text).byteLength > MESSAGE_BODY_LIMITS.bytes) return
++  let result: MessageBodyPlan | undefined
++  for (const presenter of presenters) {
++    try {
++      const plan = presenter.present(input)
++      if (!plan) continue
++      if (result || !validPlan(input, plan)) return
++      result = {
++        source: { sessionID: plan.source.sessionID, messageID: plan.source.messageID, revision: plan.source.revision },
++        label: plan.label,
++        items: plan.items.map((item) => ({
++          key: item.key,
++          label: item.label,
++          preview: { start: item.preview.start, end: item.preview.end },
++          sections: item.sections.map((section) => ({
++            label: section.label,
++            range: { start: section.range.start, end: section.range.end },
++          })),
++        })),
++      }
++    } catch {
++      return
++    }
++  }
++  return result
++}
++
++function validPlan(input: MessageBodyInput, plan: MessageBodyPlan): boolean {
++  if (!plan || typeof plan !== "object" || !plan.source) return false
++  if (
++    plan.source.sessionID !== input.source.sessionID ||
++    plan.source.messageID !== input.source.messageID ||
++    plan.source.revision !== input.source.revision
++  )
++    return false
++  if (
++    !label(plan.label) ||
++    !Array.isArray(plan.items) ||
++    !plan.items.length ||
++    plan.items.length > MESSAGE_BODY_LIMITS.items
++  )
++    return false
++  const points = new Set(Array.from(segmenter.segment(input.text), (item) => item.index).concat(input.text.length))
++  const range = (value: { start: number; end: number } | undefined) =>
++    !!value &&
++    Number.isInteger(value.start) &&
++    Number.isInteger(value.end) &&
++    value.start >= 0 &&
++    value.end > value.start &&
++    value.end <= input.text.length &&
++    points.has(value.start) &&
++    points.has(value.end)
++  const keys = new Set<string>()
++  return plan.items.every((item) => {
++    if (!item || !label(item.key) || keys.has(item.key) || !label(item.label) || !range(item.preview)) return false
++    keys.add(item.key)
++    return (
++      Array.isArray(item.sections) &&
++      item.sections.length > 0 &&
++      item.sections.length <= MESSAGE_BODY_LIMITS.sections &&
++      item.sections.every(
++        (section: MessageBodyPlan["items"][number]["sections"][number]) =>
++          section && label(section.label) && range(section.range),
++      )
++    )
++  })
++}
++
++function label(value: unknown): value is string {
++  return (
++    typeof value === "string" &&
++    value.length > 0 &&
++    value.length <= MESSAGE_BODY_LIMITS.label &&
++    !/[\r\n\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/u.test(value)
++  )
++}
++
++export function bodyDisplay(text: string): string {
++  return text.replace(
++    /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/gu,
++    (value) => `\\u${value.charCodeAt(0).toString(16).padStart(4, "0")}`,
++  )
++}
++
++export function bodyPreview(text: string): string {
++  const result: string[] = []
++  for (const item of segmenter.segment(text)) {
++    if (result.length === MESSAGE_BODY_LIMITS.preview) return bodyDisplay(result.join("").replace(/\s+/gu, " ")) + "…"
++    result.push(item.segment)
++  }
++  return bodyDisplay(result.join("").replace(/\s+/gu, " "))
++}
+diff --git a/packages/tui/src/routes/session/dialog-message.tsx b/packages/tui/src/routes/session/dialog-message.tsx
+index bf706ddb5..770d58969 100644
+--- a/packages/tui/src/routes/session/dialog-message.tsx
++++ b/packages/tui/src/routes/session/dialog-message.tsx
+@@ -9,11 +9,13 @@ import { DialogFork } from "./dialog-fork"
+ import type { PromptInfo } from "../../prompt/history"
+ import { projectedPromptInput } from "../../prompt/codec"
+ import { useNewDesigns } from "../../config"
++import type { MessageBodyControl } from "../../component/user-message-body"
+ 
+ export function DialogMessage(props: {
+   messageID: string
+   sessionID: string
+   setPrompt?: (prompt: PromptInfo) => void
++  bodyControl?: () => MessageBodyControl | undefined
+ }) {
+   const data = useData()
+   const clipboard = useClipboard()
+@@ -27,6 +29,30 @@ export function DialogMessage(props: {
+       title="Message Actions"
+       renderFilter={!newDesigns()}
+       options={[
++        ...(props.bodyControl?.()?.available()
++          ? [
++              {
++                title: "Focus folded content",
++                value: "message.body.focus",
++                onSelect: (dialog: { clear(): void }) => {
++                  dialog.clear()
++                  queueMicrotask(() => {
++                    if (message()?.type === "user") props.bodyControl?.()?.focus()
++                  })
++                },
++              },
++              {
++                title: "Show original / folded content",
++                value: "message.body.original",
++                onSelect: (dialog: { clear(): void }) => {
++                  dialog.clear()
++                  queueMicrotask(() => {
++                    if (message()?.type === "user") props.bodyControl?.()?.original()
++                  })
++                },
++              },
++            ]
++          : []),
+         {
+           title: "Jump to",
+           value: "message.jump",
+diff --git a/packages/tui/src/routes/session/index.tsx b/packages/tui/src/routes/session/index.tsx
+index 0b8228ef8..50c586857 100644
+--- a/packages/tui/src/routes/session/index.tsx
++++ b/packages/tui/src/routes/session/index.tsx
+@@ -33,6 +33,7 @@ import {
+   type Renderable,
+ } from "@opentui/core"
+ import { Prompt, type PromptRef } from "../../component/prompt"
++import { UserMessageBody, type MessageBodyControl } from "../../component/user-message-body"
+ import type {
+   SessionMessageInfo,
+   SessionMessageAssistant,
+@@ -1141,7 +1142,9 @@ export function Session(props: {
+       },
+       run: () => {
+         const lastAssistantMessage = messagesBeforeRevert().findLast(
+-          (msg) => msg.type === "assistant" || (msg.type === "compaction" && msg.status === "completed" && msg.summary.trim() !== ""),
++          (msg) =>
++            msg.type === "assistant" ||
++            (msg.type === "compaction" && msg.status === "completed" && msg.summary.trim() !== ""),
+         )
+         if (!lastAssistantMessage) {
+           toast.show({ message: "No assistant messages found", variant: "error" })
+@@ -1451,9 +1454,7 @@ export function Session(props: {
+                   onMouseOut={() => setLatestHovered(false)}
+                   onMouseUp={toBottom}
+                 >
+-                  <text
+-                    fg={latestHovered() ? theme.text.action.secondary.hovered : theme.text.action.secondary.base}
+-                  >
++                  <text fg={latestHovered() ? theme.text.action.secondary.hovered : theme.text.action.secondary.base}>
+                     Jump to latest ↓
+                   </text>
+                 </box>
+@@ -1499,12 +1500,7 @@ export function Session(props: {
+                     }}
+                   </Show>
+                 </Match>
+-                <Match
+-                  when={
+-                    session() &&
+-                    currentLocation.error?.location.directory === session()!.location.directory
+-                  }
+-                >
++                <Match when={session() && currentLocation.error?.location.directory === session()!.location.directory}>
+                   <SessionLocationMissing
+                     directory={session()!.location.directory}
+                     projectID={session()!.projectID}
+@@ -2214,6 +2210,8 @@ function ShellMessage(props: { message: Extract<SessionMessageInfo, { type: "she
+ 
+ function UserMessage(props: { message: SessionMessageUser }) {
+   const ctx = use()
++  const plugins = usePlugin()
++  let bodyControl: MessageBodyControl | undefined
+   const newDesigns = useNewDesigns()
+   const data = useData()
+   const local = useLocal()
+@@ -2279,6 +2277,7 @@ function UserMessage(props: { message: SessionMessageUser }) {
+                 messageID={messageID}
+                 sessionID={ctx.sessionID}
+                 setPrompt={(value) => promptRef.current?.set(value)}
++                bodyControl={() => bodyControl}
+               />
+             ))
+           }}
+@@ -2288,7 +2287,16 @@ function UserMessage(props: { message: SessionMessageUser }) {
+           backgroundColor={hover() ? theme.decrease(theme.background.raised.base) : theme.background.raised.base}
+           flexShrink={0}
+         >
+-          <text fg={theme.text.base}>{props.message.text}</text>
++          <UserMessageBody
++            sessionID={ctx.sessionID}
++            messageID={props.message.id}
++            text={props.message.text}
++            metadata={props.message.metadata}
++            presenters={plugins.messageBodies()}
++            control={(value) => {
++              bodyControl = value
++            }}
++          />
+           <Show when={skills().length}>
+             <box flexDirection="row" paddingTop={1} gap={1} flexWrap="wrap">
+               <For each={skills()}>
+@@ -2762,9 +2770,7 @@ function BlockTool(props: BlockToolProps) {
+               <Show
+                 when={props.spinner}
+                 fallback={
+-                  <text
+-                    fg={permission() ? theme.text.feedback.warning.base : (props.headerColor ?? theme.text.muted)}
+-                  >
++                  <text fg={permission() ? theme.text.feedback.warning.base : (props.headerColor ?? theme.text.muted)}>
+                     {title()}
+                   </text>
+                 }
+@@ -2952,11 +2958,7 @@ function ShellDisplay(props: {
+           <Show
+             when={isRunning()}
+             fallback={
+-              <text
+-                fg={theme.text.base}
+-                wrapMode={expanded() ? "word" : "char"}
+-                maxHeight={expanded() ? undefined : 2}
+-              >
++              <text fg={theme.text.base} wrapMode={expanded() ? "word" : "char"} maxHeight={expanded() ? undefined : 2}>
+                 {limitedInput()}
+               </text>
+             }
+@@ -3057,7 +3059,9 @@ function Read(props: ToolProps) {
+         Read {pathFormatter.format(stringValue(props.input.path))}
+         <Show when={props.input.offset !== undefined || props.input.limit !== undefined}>
+           :{finiteNumber(props.input.offset) || 1}-
+-          {props.input.limit ? (finiteNumber(props.input.offset) || 1) + (finiteNumber(props.input.limit) || 0) - 1 : ""}
++          {props.input.limit
++            ? (finiteNumber(props.input.offset) || 1) + (finiteNumber(props.input.limit) || 0) - 1
++            : ""}
+         </Show>
+       </InlineTool>
+       <For each={loaded()}>
+diff --git a/packages/tui/test/component/user-message-body.test.tsx b/packages/tui/test/component/user-message-body.test.tsx
+new file mode 100644
+index 000000000..59fe76fb3
+--- /dev/null
++++ b/packages/tui/test/component/user-message-body.test.tsx
+@@ -0,0 +1,342 @@
++import { expect, test } from "bun:test"
++import { type Renderable, TextareaRenderable, ScrollBoxRenderable } from "@opentui/core"
++import { testRender } from "@opentui/solid"
++import { createSignal } from "solid-js"
++import type { MessageBodyPlan, MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
++import { ConfigProvider } from "../../src/config"
++import { Keymap } from "../../src/context/keymap"
++import { ThemeProvider } from "../../src/context/theme"
++import { UserMessageBody, type MessageBodyControl } from "../../src/component/user-message-body"
++import { emptyThemeSource, tmpdir } from "../fixture/fixture"
++import { TestTuiContexts } from "../fixture/tui-environment"
++import { createTuiResolvedConfig } from "../fixture/tui-runtime"
++import { DateTime, Effect } from "effect"
++import { LLM, Message, ToolDefinition } from "@opencode/ai"
++import { OpenAIChat, AnthropicMessages } from "@opencode/ai/protocols"
++import { compileRequest } from "@opencode/ai/route/client"
++import { SessionMessage } from "@opencode/core/session/message"
++import { toLLMMessages } from "@opencode/core/session/runner/to-llm-message"
++import { Model } from "@opencode/core/model"
++import { Provider } from "@opencode/core/provider"
++
++const canonical = "Shared instruction\nQuote one\nComment ONE\nQuote two\nComment TWO"
++const range = (text: string) => ({ start: canonical.indexOf(text), end: canonical.indexOf(text) + text.length })
++const modelRef = Model.Ref.make({ id: Model.ID.make("fixture"), providerID: Provider.ID.make("fixture") })
++async function compiled(text: string) {
++  const user = SessionMessage.User.make({
++    id: SessionMessage.ID.make("msg_fixture"),
++    type: "user",
++    text,
++    metadata: { annotationBatch: "msg_fixture" },
++    time: { created: DateTime.makeUnsafe(0) },
++  })
++  return Effect.runPromise(
++    Effect.gen(function* () {
++      const result = []
++      for (const model of [
++        OpenAIChat.route.model({ id: "gpt-4.1-mini" }),
++        AnthropicMessages.route.model({ id: "claude-sonnet-4" }),
++      ]) {
++        const prepared = yield* compileRequest(
++          LLM.request({
++            model,
++            system: "Existing system text",
++            cache: "auto",
++            messages: [
++              Message.user("Earlier question"),
++              Message.assistant("Earlier answer"),
++              ...toLLMMessages([user], modelRef),
++            ],
++            tools: [
++              ToolDefinition.make({
++                name: "existing_tool",
++                description: "Existing tool",
++                inputSchema: { type: "object" },
++              }),
++            ],
++          }),
++        )
++        result.push(prepared.body)
++      }
++      return result
++    }),
++  )
++}
++const presenter: MessageBodyPresenter = {
++  name: "fixture.notes.v1",
++  present: (input) => ({
++    source: input.source,
++    label: "Notes (2)",
++    items: [
++      {
++        key: "one",
++        label: "#1",
++        preview: range("Quote one"),
++        sections: [
++          { label: "Quote", range: range("Quote one") },
++          { label: "Comment", range: range("Comment ONE") },
++        ],
++      },
++      {
++        key: "two",
++        label: "#2",
++        preview: range("Quote two"),
++        sections: [{ label: "Comment", range: range("Comment TWO") }],
++      },
++    ],
++  }),
++}
++
++function find(node: Renderable, id: string): Renderable | undefined {
++  return node.id === id
++    ? node
++    : node
++        .getChildren()
++        .map((child) => find(child, id))
++        .find(Boolean)
++}
++async function mount(directory: string, width = 100, fixture = { text: canonical, presenter }) {
++  let presentations = 0
++  const counted: MessageBodyPresenter = {
++    name: fixture.presenter.name,
++    present: (input) => {
++      presentations++
++      return fixture.presenter.present(input)
++    },
++  }
++  const [presenters, setPresenters] = createSignal<readonly MessageBodyPresenter[]>([counted])
++  const [canonicalValue, setCanonicalValue] = createSignal({ text: fixture.text })
++  const text = () => canonicalValue().text
++  const setText = (value: string) => setCanonicalValue({ text: value })
++  const [metadata, setMetadata] = createSignal<Readonly<Record<string, unknown>>>({ annotationBatch: "m" })
++  let control: MessageBodyControl | undefined
++  let composer!: TextareaRenderable
++  let scroll!: ScrollBoxRenderable
++  let menus = 0
++  const app = await testRender(
++    () => (
++      <TestTuiContexts directory={directory} paths={{ home: directory, state: directory, worktree: directory }}>
++        <ConfigProvider config={createTuiResolvedConfig()}>
++          <Keymap.Provider>
++            <ThemeProvider mode="dark" source={emptyThemeSource}>
++              <box flexDirection="column" width="100%" height="100%">
++                <scrollbox ref={scroll} height={24} width="100%" scrollY>
++                  <box
++                    id="native-row"
++                    onMouseUp={() => {
++                      if (!app.renderer.getSelection()?.getSelectedText()) menus++
++                    }}
++                  >
++                    <UserMessageBody
++                      sessionID="s"
++                      messageID="m"
++                      text={text()}
++                      metadata={metadata()}
++                      presenters={presenters()}
++                      control={(value) => {
++                        control = value
++                      }}
++                    />
++                    <text>Native file badge</text>
++                  </box>
++                </scrollbox>
++                <textarea ref={composer} initialValue="UNSENT DRAFT" height={2} />
++              </box>
++            </ThemeProvider>
++          </Keymap.Provider>
++        </ConfigProvider>
++      </TestTuiContexts>
++    ),
++    { width, height: 32, kittyKeyboard: true },
++  )
++  await app.renderOnce()
++  composer.focus()
++  await app.waitForFrame((frame) =>
++    frame.includes(
++      fixture.presenter.present({ source: { sessionID: "s", messageID: "m", revision: 1 }, text: fixture.text })!.label,
++    ),
++  )
++  return {
++    ...app,
++    control: () => control!,
++    composer,
++    scroll,
++    menus: () => menus,
++    setPresenters,
++    setText,
++    setMetadata,
++    presentations: () => presentations,
++    compiled: () => compiled(text()),
++    node: (id: string) => find(app.renderer.root, id)!,
++  }
++}
++
++test.each([100, 44])(
++  "individual default collapse, keyboard toggle/original/Escape, resize at %i columns",
++  async (width) => {
++    await using tmp = await tmpdir()
++    const app = await mount(tmp.path, width)
++    try {
++      const before = await app.compiled()
++      expect(app.captureCharFrame()).toContain("#1")
++      expect(app.captureCharFrame()).toContain("#2")
++      expect(app.captureCharFrame()).not.toContain("Comment ONE")
++      expect(app.renderer.currentFocusedRenderable).toBe(app.composer)
++      app.control().focus()
++      app.mockInput.pressEnter()
++      await app.renderOnce()
++      expect(app.captureCharFrame()).toContain("Comment ONE")
++      expect(app.captureCharFrame()).not.toContain("Comment TWO")
++      app.mockInput.pressArrow("down")
++      app.mockInput.pressKey(" ")
++      await app.renderOnce()
++      expect(app.captureCharFrame()).toContain("Comment TWO")
++      app.resize(60, 32)
++      await app.renderOnce()
++      expect(app.captureCharFrame()).toContain("Comment ONE")
++      app.mockInput.pressKey("o")
++      await app.renderOnce()
++      expect(app.captureCharFrame()).toContain("Shared instruction")
++      app.mockInput.pressKey("o")
++      app.mockInput.pressEscape()
++      await app.renderOnce()
++      expect(app.renderer.currentFocusedRenderable).toBe(app.composer)
++      expect(app.composer.plainText).toBe("UNSENT DRAFT")
++      expect(app.menus()).toBe(0)
++      expect(await app.compiled()).toEqual(before)
++    } finally {
++      app.renderer.destroy()
++    }
++  },
++)
++
++test("equivalent resync preserves expanded selected text and focus; idle frames never rerun presenters", async () => {
++  await using tmp = await tmpdir()
++  const app = await mount(tmp.path)
++  try {
++    app.control().focus()
++    app.mockInput.pressEnter()
++    await app.flush()
++    const lines = app.captureCharFrame().split("\n")
++    const y = lines.findIndex((line) => line.includes("Comment ONE"))
++    const x = lines[y].indexOf("Comment ONE")
++    await app.mockMouse.drag(x, y, x + 6, y)
++    const selected = app.renderer.getSelection()?.selectedRenderables[0]
++    const focused = app.renderer.currentFocusedRenderable
++    expect(app.renderer.getSelection()?.getSelectedText()).toContain("Comment")
++    app.setText(canonical) // A replacement object with identical canonical fields.
++    app.setMetadata({ annotationBatch: "m", displayGeneration: 2 })
++    await app.flush()
++    expect(app.captureCharFrame()).toContain("Comment ONE")
++    expect(app.renderer.getSelection()?.selectedRenderables[0]).toBe(selected)
++    expect(app.renderer.getSelection()?.getSelectedText()).toContain("Comment")
++    expect(app.renderer.currentFocusedRenderable).toBe(focused)
++    const calls = app.presentations()
++    for (let index = 0; index < 20; index++) {
++      app.renderer.requestRender()
++      await app.renderOnce()
++    }
++    expect(app.presentations()).toBe(calls)
++    expect(app.menus()).toBe(0)
++  } finally {
++    app.renderer.destroy()
++  }
++})
++
++test("bounded many-note keyboard navigation reveals the selected header in the native scrollbox", async () => {
++  await using tmp = await tmpdir()
++  const text = Array.from({ length: 60 }, (_, index) => `Quote ${index}\nComment ${index}`).join("\n")
++  const many: MessageBodyPresenter = {
++    name: "fixture.many",
++    present: (input) => ({
++      source: input.source,
++      label: "Many notes",
++      items: Array.from({ length: 60 }, (_, index) => {
++        const quote = `Quote ${index}`
++        const start = input.text.indexOf(quote + "\n")
++        return {
++          key: `n${index}`,
++          label: `#${index}`,
++          preview: { start, end: start + quote.length },
++          sections: [{ label: "Quote", range: { start, end: start + quote.length } }],
++        }
++      }),
++    }),
++  }
++  const app = await mount(tmp.path, 44, { text, presenter: many })
++  try {
++    app.control().focus()
++    for (let index = 0; index < 40; index++) app.mockInput.pressArrow("down")
++    await app.flush()
++    expect(app.scroll.scrollTop).toBeGreaterThan(0)
++    expect(app.captureCharFrame()).toContain("> ▸ #40")
++    app.mockInput.pressEnter()
++    await app.flush()
++    expect(app.captureCharFrame()).toContain("> ▾ #40")
++    const top = app.scroll.scrollTop
++    app.resize(60, 32)
++    await app.flush()
++    expect(app.captureCharFrame()).toContain("#40")
++    expect(app.scroll.scrollTop).toBe(top)
++  } finally {
++    app.renderer.destroy()
++  }
++})
++
++test("handled mouse toggles stay inside the body; expanded content selection and native row actions survive", async () => {
++  await using tmp = await tmpdir()
++  const app = await mount(tmp.path)
++  try {
++    const note = app.node("body-note:m:one")
++    await app.mockMouse.click(note.x + 3, note.y)
++    await app.renderOnce()
++    expect(app.captureCharFrame()).toContain("Comment ONE")
++    expect(app.menus()).toBe(0)
++    const frame = app.captureCharFrame().split("\n")
++    const commentY = frame.findIndex((line) => line.includes("Comment ONE"))
++    const commentX = frame[commentY].indexOf("Comment ONE")
++    await app.mockMouse.drag(commentX, commentY, commentX + 6, commentY)
++    expect(app.renderer.getSelection()?.getSelectedText()).toContain("Comment")
++    expect(app.menus()).toBe(0)
++    app.renderer.clearSelection()
++    const badgeY = app
++      .captureCharFrame()
++      .split("\n")
++      .findIndex((line) => line.includes("Native file badge"))
++    await app.mockMouse.click(3, badgeY)
++    expect(app.menus()).toBe(1)
++    expect(app.composer.plainText).toBe("UNSENT DRAFT")
++  } finally {
++    app.renderer.destroy()
++  }
++})
++
++test("disable/missing plugin, invalid plan and revision changes restore raw text and release focus", async () => {
++  await using tmp = await tmpdir()
++  const app = await mount(tmp.path)
++  try {
++    app.control().focus()
++    app.mockInput.pressEnter()
++    app.setPresenters([])
++    await app.renderOnce()
++    expect(app.captureCharFrame()).toContain("Shared instruction")
++    expect(app.control().available()).toBe(false)
++    expect(app.renderer.currentFocusedRenderable).toBe(app.composer)
++    app.setPresenters([presenter])
++    await app.renderOnce()
++    expect(app.captureCharFrame()).not.toContain("Comment ONE")
++    const stale: MessageBodyPlan = presenter.present({
++      source: { sessionID: "s", messageID: "m", revision: 0 },
++      text: canonical,
++    })!
++    app.setPresenters([{ name: "stale", present: () => stale }])
++    await app.renderOnce()
++    expect(app.captureCharFrame()).toContain("Shared instruction")
++    app.setText("Replacement canonical body")
++    app.setPresenters([{ name: "invalid", present: () => ({}) as MessageBodyPlan }])
++    await app.renderOnce()
++    expect(app.captureCharFrame()).toContain("Replacement canonical body")
++  } finally {
++    app.renderer.destroy()
++  }
++})
+diff --git a/packages/tui/test/plugin-message-body.test.tsx b/packages/tui/test/plugin-message-body.test.tsx
+new file mode 100644
+index 000000000..392f55e9a
+--- /dev/null
++++ b/packages/tui/test/plugin-message-body.test.tsx
+@@ -0,0 +1,113 @@
++import { expect, test } from "bun:test"
++import path from "node:path"
++import { createAppFixture } from "./fixture/app"
++import { tmpdir } from "./fixture/fixture"
++import { directory, json } from "./fixture/tui-client"
++
++const canonical = "Shared instruction\nQuote one\nComment ONE\nQuote two\nComment TWO"
++const source = `export default { id: 'fixture.body', setup(context) {
++  const api = context.ui.messageBody;
++  let release;
++  const register = () => { if (release) return; release = api.register({ name:'fixture.body.v1', present(input) {
++    if (input.metadata?.annotationBatch !== input.source.messageID) return;
++    const range = value => ({ start:input.text.indexOf(value), end:input.text.indexOf(value)+value.length });
++    return { source:input.source, label:'Fixture notes generation 1', items:[
++      { key:'one', label:'#1', preview:range('Quote one'), sections:[{label:'Comment',range:range('Comment ONE')}] },
++      { key:'two', label:'#2', preview:range('Quote two'), sections:[{label:'Comment',range:range('Comment TWO')}] }
++    ] };
++  } }); };
++  register();
++  context.keymap.layer(() => ({ mode:'global', commands:[
++    { id:'fixture.body.remove', bind:'f9', run:()=>{ release?.(); release?.(); release=undefined; } },
++    { id:'fixture.body.add', bind:'f10', run:register }
++  ] }));
++  if (context.options?.fail) throw new Error('Fixture setup failure after registration');
++  return () => release?.();
++} }`
++
++async function mount(root: string, fail = false) {
++  const plugin = path.join(root, "body-plugin")
++  const entry = path.join(plugin, "tui.js")
++  await Bun.write(entry, source)
++  let prompts = 0
++  const session = {
++    id: "ses_test",
++    title: "Body disclosure fixture",
++    projectID: "project",
++    location: { directory },
++    cost: 0,
++    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
++    time: { created: 0, updated: 0 },
++  }
++  const message = {
++    id: "msg_fixture",
++    type: "user",
++    text: canonical,
++    metadata: { annotationBatch: "msg_fixture" },
++    time: { created: 1 },
++  }
++  const setup = await createAppFixture({
++    args: { sessionID: session.id },
++    config: { animations: false, tabs: { mode: "off" }, plugins: [{ package: plugin, options: { fail } }] },
++    fetch: (url, request) => {
++      if (request.method === "POST" && url.pathname.endsWith("/prompt")) {
++        prompts++
++        return json({ message: "No requests allowed" }, { status: 500 })
++      }
++      if (url.pathname === "/api/session") return json({ data: [session], cursor: {} })
++      if (url.pathname === "/api/session/ses_test") return json({ data: session })
++      if (url.pathname === "/api/session/ses_test/message") return json({ data: [message], cursor: {} })
++      if (["/api/session/ses_test/inbox", "/api/session/ses_test/permission"].includes(url.pathname))
++        return json({ data: [] })
++    },
++  })
++  return { setup, entry, prompts: () => prompts }
++}
++
++test("real plugin registration, disposer and hot reload preserve native row actions without prompts", async () => {
++  await using root = await tmpdir()
++  const { setup, entry, prompts } = await mount(root.path)
++  await using app = setup
++  await app.ready
++  await app.waitForFrame((frame) => frame.includes("Fixture notes generation 1"))
++  expect(app.captureCharFrame()).not.toContain("Comment ONE")
++  app.mockInput.pressKey("F9")
++  await app.waitForFrame((frame) => frame.includes("Shared instruction"))
++  app.mockInput.pressKey("F10")
++  await app.waitForFrame((frame) => frame.includes("Fixture notes generation 1"))
++  const frame = app.captureCharFrame().split("\n")
++  const y = frame.findIndex((line) => line.includes("#1"))
++  await app.mockMouse.click(frame[y].indexOf("#1"), y)
++  await app.waitForFrame((frame) => frame.includes("Comment ONE"))
++  expect(app.captureCharFrame()).not.toContain("Message Actions")
++  app.mockInput.pressEscape()
++  // A normal row area retains the native message menu, including body entry.
++  const originalY = app
++    .captureCharFrame()
++    .split("\n")
++    .findIndex((line) => line.includes("Fixture notes generation 1"))
++  await app.mockMouse.click(5, originalY)
++  await app.waitForFrame((frame) => frame.includes("Message Actions"))
++  expect(app.captureCharFrame()).toContain("Focus folded content")
++  expect(app.captureCharFrame()).toContain("Copy")
++  app.mockInput.pressEscape()
++  await Bun.write(entry, source.replace("generation 1", "generation 2"))
++  await app.waitForFrame((frame) => frame.includes("Fixture notes generation 2"))
++  expect(app.captureCharFrame()).not.toContain("Comment ONE")
++  app.mockInput.pressKey("F9")
++  await app.waitForFrame((frame) => frame.includes("Shared instruction"))
++  expect(prompts()).toBe(0)
++})
++
++test("setup failure after registration cannot leave an active body presenter", async () => {
++  await using root = await tmpdir()
++  const { setup, prompts } = await mount(root.path, true)
++  await using app = setup
++  await app.ready
++  await app.waitForFrame((frame) => frame.includes("Shared instruction"))
++  expect(app.captureCharFrame()).not.toContain("Fixture notes generation")
++  app.mockInput.pressKey("F10")
++  await app.renderOnce()
++  expect(app.captureCharFrame()).not.toContain("Fixture notes generation")
++  expect(prompts()).toBe(0)
++})
+diff --git a/packages/tui/test/plugin/message-body.test.ts b/packages/tui/test/plugin/message-body.test.ts
+new file mode 100644
+index 000000000..15227c3ac
+--- /dev/null
++++ b/packages/tui/test/plugin/message-body.test.ts
+@@ -0,0 +1,92 @@
++import { expect, test } from "bun:test"
++import type { MessageBodyInput, MessageBodyPlan } from "@opencode/plugin/tui/message-body"
++import { bodyDisplay, bodyPreview, resolveMessageBody } from "../../src/plugin/message-body"
++
++const input: MessageBodyInput = { source: { sessionID: "s", messageID: "m", revision: 1 }, text: "A 👨‍👩‍👧 é\r\nComment" }
++const plan = (): MessageBodyPlan => ({
++  source: input.source,
++  label: "Notes (1)",
++  items: [
++    {
++      key: "n",
++      label: "#1",
++      preview: { start: 0, end: input.text.length },
++      sections: [{ label: "Quote", range: { start: 0, end: input.text.length } }],
++    },
++  ],
++})
++const resolve = (value: MessageBodyPlan) =>
++  resolveMessageBody(input, [{ name: "sample.notes.v1", present: () => value }])
++
++test("exact current canonical-body plan is admitted without mutating its input", () => {
++  const before = JSON.stringify(input)
++  expect(resolve(plan())).toEqual(plan())
++  expect(JSON.stringify(input)).toBe(before)
++})
++test("absence, exception and conflicting presenters restore original body", () => {
++  expect(resolveMessageBody(input, [])).toBeUndefined()
++  expect(resolveMessageBody(input, [{ name: "absent", present: () => undefined }])).toBeUndefined()
++  expect(
++    resolveMessageBody(input, [
++      {
++        name: "broken",
++        present: () => {
++          throw new Error("fixture")
++        },
++      },
++    ]),
++  ).toBeUndefined()
++  expect(
++    resolveMessageBody(
++      input,
++      [1, 2].map((n) => ({ name: `plugin.${n}`, present: plan })),
++    ),
++  ).toBeUndefined()
++})
++test("stale body revision, message or session fails closed", () => {
++  for (const source of [
++    { ...input.source, revision: 0 },
++    { ...input.source, messageID: "other" },
++    { ...input.source, sessionID: "other" },
++  ])
++    expect(resolve({ ...plan(), source })).toBeUndefined()
++})
++test("malformed, oversized and duplicate-key plans fail closed", () => {
++  const invalid = [
++    null,
++    {},
++    { ...plan(), label: "x\ncommand" },
++    { ...plan(), items: [] },
++    { ...plan(), items: Array(101).fill(plan().items[0]) },
++    { ...plan(), items: [plan().items[0], plan().items[0]] },
++  ]
++  for (const value of invalid) expect(resolve(value as MessageBodyPlan)).toBeUndefined()
++  let calls = 0
++  expect(
++    resolveMessageBody({ ...input, text: "x".repeat(1_000_001) }, [
++      {
++        name: "fixture",
++        present: () => {
++          calls++
++          return plan()
++        },
++      },
++    ]),
++  ).toBeUndefined()
++  expect(calls).toBe(0)
++})
++test("all range endpoints must be grapheme boundaries and within the canonical text", () => {
++  for (const preview of [
++    { start: -1, end: 1 },
++    { start: 0, end: 100 },
++    { start: 0, end: 0 },
++    { start: 2, end: 3 },
++    { start: 0, end: 2.5 },
++  ])
++    expect(resolve({ ...plan(), items: [{ ...plan().items[0], preview }] })).toBeUndefined()
++})
++test("terminal controls are escaped in local display; previews bound graphemes", () => {
++  expect(bodyDisplay("a\u001b[31m\u202eb\r\n")).toBe("a\\u001b[31m\\u202eb\r\n")
++  expect(bodyPreview("👨‍👩‍👧".repeat(100))).toBe("👨‍👩‍👧".repeat(80) + "…")
++  expect(bodyPreview("A\r\nB")).toBe("A B")
++})
+diff --git a/packages/util/package.json b/packages/util/package.json
+index ddd405e73..1566c37a1 100644
+--- a/packages/util/package.json
++++ b/packages/util/package.json
+@@ -62,6 +62,7 @@
+     "pacote": "21.5.1"
+   },
+   "devDependencies": {
++    "@types/mime-types": "3.0.1",
+     "@tsconfig/bun": "catalog:",
+     "@types/bun": "catalog:",
+     "@types/cross-spawn": "catalog:",

@@ -9,6 +9,7 @@ import type { State, Note } from './model.ts'
 import { annotationStore } from './store-view.ts'
 import { batchPrompt } from './submission.ts'
 import { promptComment } from './comment-dialog.tsx'
+import { batchPresenter, type BodyAPI } from './presentation.ts'
 
 type Update = (mutation: (draft: State) => void) => Promise<void>
 const panelName = 'response-annotations.review'
@@ -19,6 +20,9 @@ export default Plugin.define({
   setup(context) {
     const store = annotationStore(context.storage)
     const update = store.update
+    const presentation = createMemo(() => batchPresenter(store.state.batches))
+    const bodyAPI = (context.ui as Context['ui'] & { messageBody?: BodyAPI }).messageBody
+    const bodyCleanup = bodyAPI?.version === 1 ? bodyAPI.register({ name: 'response-annotations.batch.v1', present: input => store.error ? undefined : presentation()(input) }) : undefined
     const [captured, setCaptured] = createSignal<Capture>()
     let selectionRevision = 0
     let selectionError = 'Highlight a passage in the original assistant response first'
@@ -81,7 +85,7 @@ export default Plugin.define({
         </text>
       </Show>
     ) })
-    return () => { context.renderer.off('selection', capture); selectionRevision++; setCaptured(undefined); panel(); compact() }
+    return () => { context.renderer.off('selection', capture); selectionRevision++; setCaptured(undefined); bodyCleanup?.(); panel(); compact() }
   },
 })
 

@@ -1,5 +1,7 @@
 # OpenCode Response Annotations
 
+> **Experimental folding preview branch.** See [FOLDING.md](FOLDING.md) for the pinned host patch, review status and reproduction instructions. Stable `main` remains plugin 0.3.1; the ordinary official-host limitations below still apply without that patch.
+
 An experimental terminal plugin for **OpenCode V2 2.0.32**. Highlight the **original assistant response in the main transcript**, commit an optional comment locally, review numbered notes stacked in a sidebar, then explicitly send one batch. The sidebar is a notes queue, not a duplicate response editor. The main composer is untouched.
 
 This is a restricted implementation, **not full desktop annotation parity**. Native selection APIs expose rendered text, not stable source ranges. A version-pinned host-structure adapter and conservative exact-text checks accept only unambiguous selections. Repeated quotes, duplicate full responses, cross-message selections, unsupported structures and rendered text that does not match the source are rejected rather than guessed.

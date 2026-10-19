@@ -17,7 +17,7 @@ export function resolveSelection(input: {
   version: string; sessionID: string; reverted: boolean; selection: NativeSelection | null
   messages: readonly MessageSnapshot[]; isMarkdown: (node: SelectionNode) => node is MarkdownNode
 }): Capture {
-  if (input.version !== SUPPORTED_HOST) throw new Error(`Native annotation adapter requires OpenCode ${SUPPORTED_HOST}`)
+  if (input.version !== SUPPORTED_HOST && input.version !== '2.0.32-folding.1') throw new Error(`Native annotation adapter requires OpenCode ${SUPPORTED_HOST} or isolated 2.0.32-folding.1`)
   if (input.reverted) throw new Error('Resolve the session revert before annotating')
   const selection = input.selection
   if (!selection || selection.isDragging) throw new Error('Highlight a passage in the original assistant response first')

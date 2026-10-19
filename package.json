@@ -1,6 +1,6 @@
 {
   "name": "opencode-response-annotations",
-  "version": "0.3.1",
+  "version": "0.3.1-folding.1",
   "private": true,
   "type": "module",
   "description": "Native transcript selection and queued sidebar annotations for OpenCode V2 CLI",

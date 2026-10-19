@@ -2,7 +2,7 @@
 
 ## F6 and selected-quote dialogs, 0.3.1 candidate (2026-10-18)
 
-Source/staging only on DESKTOP-49DSGUK, based on published 0.3.0 commit `d744923d2b026eb87256eacdc7a3f71a66507da3`. The running installed 0.3.0 session is not edited, restarted or automated. No model request, stored-data migration, configuration/routing change, publication or activation of this candidate is performed.
+Source/staging only on the isolated Windows validation VM, based on published 0.3.0 commit `d744923d2b026eb87256eacdc7a3f71a66507da3`. The running installed 0.3.0 session is not edited, restarted or automated. No model request, stored-data migration, configuration/routing change, publication or activation of this candidate is performed.
 
 - **44 Node tests pass**, including all existing storage/quote/frozen-retry validation.
 - **63 Bun tests pass across seven files, 553 assertions**. Twelve new dialog/keymap cases use the real published OpenTUI/keymap 0.5.17 packages with a small pinned-host layer/mode/config bridge and synthetic renderer input. F6 works with legacy and Kitty encoding while the composer remains focused, and command-specific custom binding overrides and palette dispatch are exercised. These tests do not claim actual Windows/VM keystroke delivery.
@@ -16,7 +16,7 @@ Sent expandable transcript cards remain unsupported by the pinned per-message pl
 
 ## Quote-only baseline and optional revision storage, 0.3.0 candidate (2026-10-18)
 
-Source-only candidate on DESKTOP-49DSGUK; the active installed 0.2.1 files/session/store have not been updated or migrated. Publication and installed activation are held for independent review. No paid/live model request, authentication change, terminal UI automation or old-message rewrite was performed.
+Source-only candidate on the isolated Windows validation VM; the active installed 0.2.1 files/session/store have not been updated or migrated. Publication and installed activation are held for independent review. No paid/live model request, authentication change, terminal UI automation or old-message rewrite was performed.
 
 - **44** Node domain/selection/storage tests pass (`node --test --test-isolation=none test/*.test.ts`). This includes exact Unicode/CRLF/comments, no neighboring excerpts, deterministic ID/time-independent new text, graph/hash/unit/counter validation, frozen old prepared bytes/IDs/time/note data, differing sibling revisions, rollback and large shared sources. Six review regressions reject sent/pending overlap and multiple owning batches in v1/v2 without changing input; the valid historical migration/rollback case still passes.
 - **34** OpenTUI renderer + published-client tests pass, **380** assertions. They cover draft CRUD/cancel with zero requests, one actual client request construction on Send, byte-identical envelope after uncertain retry/restart, unavailable recovery UI, durable-failure retention and success-only hide. Fetch is an offline response fixture; no remote host or provider is contacted.
@@ -33,7 +33,7 @@ Existing nonempty v1 data uses the new format and validation without schema migr
 
 ## Readable compact batches, 0.2.1 (2026-10-18)
 
-Validated on Windows VM DESKTOP-49DSGUK with official `@opencode/cli` 2.0.32, Node 24.19.0 and Bun 1.4.3. This change does not alter selection capture, model routing or the `annotations-v1` storage schema. No real batch was sent or replayed during this validation.
+Validated on Windows VM the isolated Windows validation VM with official `@opencode/cli` 2.0.32, Node 24.19.0 and Bun 1.4.3. This change does not alter selection capture, model routing or the `annotations-v1` storage schema. No real batch was sent or replayed during this validation.
 
 - 29 Node domain/selection/bounds tests pass using `node --test --test-isolation=none test/*.test.ts`; the sandbox blocks the default runner's child process isolation.
 - 31 real OpenTUI renderer tests pass, 349 assertions, using the existing fixture dialogs/storage/admission APIs. These include failed admission/restart of an old prepared JSON payload with identical ID/text; the existing uncertain-admission, failed write, cancellation and success-only hide checks also pass with new formatting.

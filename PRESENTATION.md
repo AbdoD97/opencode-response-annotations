@@ -1,5 +1,29 @@
 # Sent annotation presentation: supported surfaces
 
+## Isolated folding preview: 0.3.1-folding.1
+
+This local preview also supports the custom OpenCode `2.0.32-folding.1` build.
+Its host-owned message-body API renders each annotation as a collapsed row in
+the original conversation. Click a row or focus folded content from the native
+message menu and use Up/Down plus Enter/Space. `o` switches to the complete
+original message; Escape returns focus. Expanded quotes/comments remain
+selectable. Native outer message actions, delivery status and attachments stay
+owned by OpenCode.
+
+Presentation requires a frozen local batch matching the session, message ID,
+existing annotationBatch marker and exact canonical text. Known-format ranges
+must reproduce that frozen text exactly. Missing local data, unknown formats,
+missing API/plugin, invalid plans or setup failure show the original text.
+Exported conversations without the local annotation store retain their text
+but do not retain folding. Disclosure state is local and resets on restart.
+
+No prompt metadata, submitted text, model routing or provider request policy is
+added for folding. Saved prepared text is never regenerated for retries. This
+preview does not recover source context removed by compaction or establish
+cache hits or billing savings. The official 2.0.32 installation still uses the
+plain-text fallback described below. Do not replace a working installation or
+share its live store with the isolated preview.
+
 Inspected official OpenCode 2.0.32, source commit `594af423e8676b8458d6ef125ddde6766afad392`, and published plugin typings. This is a feasibility record, not a claim that expandable transcript cards were implemented.
 
 ## Exact limitation
