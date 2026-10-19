@@ -25,7 +25,7 @@ Official 2.0.32 without the new API continues to show plain text.
 
 ## Recorded local validation
 
-218 tests passed: 47 Node unit, 44 panel, 19 host/client, 14 host disclosure,
+220 tests passed: 47 Node unit, 44 panel, 19 host/client, 16 host disclosure,
 40 Core lowering/request and 54 AI compiler/cache/compaction/tool-history tests.
 TUI, SDK and plugin type checks and formatting passed. The disclosure tests cover
 the real headless application/plugin lifecycle, mouse event isolation, native
@@ -33,9 +33,21 @@ selection, equivalent resync, focus/escape, narrow/wide resize, 60-note scrollin
 invalid/stale fallback, idle bounds and before/after OpenAI/Anthropic compiled
 request equality. Payload measurements equal published 0.3.1.
 
-The 14 disclosure tests and three focused type checks passed again after the
-owner-local peer-layout repair described in the host guide. Broader monorepo
-limits are recorded there; no full-monorepo pass is claimed.
+The original 14 disclosure tests and three focused type checks passed again after
+the owner-local peer-layout repair described in the host guide. After the review
+performance fix, all 16 disclosure cases (including two new regressions) and the
+TUI type check passed again. The other unchanged suites were not rerun for that
+fix. Broader monorepo limits are recorded in the host guide; no full-monorepo pass
+is claimed.
+
+Plan validation now checks only the bounded requested grapheme endpoints, using
+one segmentation object and cached endpoint results. It does not enumerate an
+entire 1 MB message to validate a few ranges. The regressions admit a valid body
+at the byte/item/section caps without enumeration and check every endpoint pair
+in mixed Unicode text for both previews and sections. The caps and exact Unicode
+requirements are unchanged. Local measurements are in
+[host-patches/performance.json](host-patches/performance.json); they are observations,
+not timing guarantees.
 
 The Windows build compiled and reported `opencode v2.0.32-folding.1`. Native
 screen/click/typing access was unavailable; headless tests are not a physical

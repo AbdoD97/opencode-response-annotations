@@ -1,0 +1,102 @@
+{
+  "bun": "1.4.3",
+  "note": "Local synchronous validation timing observations, no hard performance guarantee; same valid ASCII plans before/after.",
+  "results": [
+    {
+      "bytes": 10000,
+      "items": 1,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 3.6987000000000023,
+      "max_ms": 7.070900000000002
+    },
+    {
+      "bytes": 10000,
+      "items": 1,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 0.0969999999999942,
+      "max_ms": 0.7672999999999988
+    },
+    {
+      "bytes": 10000,
+      "items": 100,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 2.697100000000006,
+      "max_ms": 4.328499999999998
+    },
+    {
+      "bytes": 10000,
+      "items": 100,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 0.2944999999999993,
+      "max_ms": 1.0353999999999957
+    },
+    {
+      "bytes": 100000,
+      "items": 1,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 28.591999999999985,
+      "max_ms": 36.24409999999999
+    },
+    {
+      "bytes": 100000,
+      "items": 1,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 0.26130000000000564,
+      "max_ms": 0.4370000000000118
+    },
+    {
+      "bytes": 100000,
+      "items": 100,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 27.4666,
+      "max_ms": 36.39529999999999
+    },
+    {
+      "bytes": 100000,
+      "items": 100,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 0.45289999999999964,
+      "max_ms": 0.7261000000000308
+    },
+    {
+      "bytes": 1000000,
+      "items": 1,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 439.3618,
+      "max_ms": 453.3208
+    },
+    {
+      "bytes": 1000000,
+      "items": 1,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 2.0995000000000346,
+      "max_ms": 3.2948999999998705
+    },
+    {
+      "bytes": 1000000,
+      "items": 100,
+      "name": "before",
+      "repeats": 3,
+      "median_ms": 437.27160000000003,
+      "max_ms": 438.41550000000007
+    },
+    {
+      "bytes": 1000000,
+      "items": 100,
+      "name": "after",
+      "repeats": 15,
+      "median_ms": 2.5200999999997293,
+      "max_ms": 3.5080000000002656
+    }
+  ]
+}

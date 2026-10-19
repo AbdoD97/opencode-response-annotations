@@ -4,10 +4,14 @@
   "base_version": "2.0.32",
   "preview_version": "2.0.32-folding.1",
   "patch": "opencode-2.0.32-message-body.patch",
-  "patch_sha256": "400dd8c53bd0f3738c5dadc6794be048b0092c989cc8b4455b703671bdaffe75",
-  "patched_git_tree": "9a34c429f4d6a519b4aa605b565c154b4404fd53",
+  "patch_sha256": "d211ac624ae51697ad25718e47dd69865a1013762c9727f3f32f633b7f2a4f8d",
+  "patched_git_tree": "c812f4e577eedc37527677ce403b236af68f8469",
   "plugin_base_commit": "1e2bf90ea837816b134bb76e6e4e7e2f09bcc829",
   "plugin_preview_version": "0.3.1-folding.1",
-  "toolchain": { "bun": "1.4.3", "node_unit_runner": "24.19.0", "linker": "hoisted" },
+  "toolchain": {
+    "bun": "1.4.3",
+    "node_unit_runner": "24.19.0",
+    "linker": "hoisted"
+  },
   "status": "experimental; independent review required before stable rollout"
 }

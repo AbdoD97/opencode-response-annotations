@@ -493,10 +493,10 @@ index 31c4f4cea..08362f961 100644
  }
 diff --git a/packages/tui/src/plugin/message-body.ts b/packages/tui/src/plugin/message-body.ts
 new file mode 100644
-index 000000000..fb4c94974
+index 000000000..27293c4aa
 --- /dev/null
 +++ b/packages/tui/src/plugin/message-body.ts
-@@ -0,0 +1,104 @@
+@@ -0,0 +1,117 @@
 +import type { MessageBodyInput, MessageBodyPlan, MessageBodyPresenter } from "@opencode/plugin/tui/message-body"
 +
 +export const MESSAGE_BODY_LIMITS = { bytes: 1_000_000, items: 100, sections: 4, label: 160, preview: 80 } as const
@@ -551,7 +551,20 @@ index 000000000..fb4c94974
 +    plan.items.length > MESSAGE_BODY_LIMITS.items
 +  )
 +    return false
-+  const points = new Set(Array.from(segmenter.segment(input.text), (item) => item.index).concat(input.text.length))
++  // A plan supplies at most 1,000 endpoints. Do not enumerate up to one million
++  // graphemes synchronously just to check those bounded positions.
++  const segments = segmenter.segment(input.text)
++  const points = new Map<number, boolean>([
++    [0, true],
++    [input.text.length, true],
++  ])
++  const boundary = (index: number) => {
++    const cached = points.get(index)
++    if (cached !== undefined) return cached
++    const valid = segments.containing(index)?.index === index
++    points.set(index, valid)
++    return valid
++  }
 +  const range = (value: { start: number; end: number } | undefined) =>
 +    !!value &&
 +    Number.isInteger(value.start) &&
@@ -559,8 +572,8 @@ index 000000000..fb4c94974
 +    value.start >= 0 &&
 +    value.end > value.start &&
 +    value.end <= input.text.length &&
-+    points.has(value.start) &&
-+    points.has(value.end)
++    boundary(value.start) &&
++    boundary(value.end)
 +  const keys = new Set<string>()
 +  return plan.items.every((item) => {
 +    if (!item || !label(item.key) || keys.has(item.key) || !label(item.label) || !range(item.preview)) return false
@@ -1237,11 +1250,11 @@ index 000000000..392f55e9a
 +})
 diff --git a/packages/tui/test/plugin/message-body.test.ts b/packages/tui/test/plugin/message-body.test.ts
 new file mode 100644
-index 000000000..15227c3ac
+index 000000000..4ffcf8d1c
 --- /dev/null
 +++ b/packages/tui/test/plugin/message-body.test.ts
-@@ -0,0 +1,92 @@
-+import { expect, test } from "bun:test"
+@@ -0,0 +1,164 @@
++import { expect, spyOn, test } from "bun:test"
 +import type { MessageBodyInput, MessageBodyPlan } from "@opencode/plugin/tui/message-body"
 +import { bodyDisplay, bodyPreview, resolveMessageBody } from "../../src/plugin/message-body"
 +
@@ -1332,6 +1345,78 @@ index 000000000..15227c3ac
 +  expect(bodyDisplay("a\u001b[31m\u202eb\r\n")).toBe("a\\u001b[31m\\u202eb\r\n")
 +  expect(bodyPreview("👨‍👩‍👧".repeat(100))).toBe("👨‍👩‍👧".repeat(80) + "…")
 +  expect(bodyPreview("A\r\nB")).toBe("A B")
++})
++
++test("a valid byte-cap body with 100 multi-range items checks endpoints without full segmentation", () => {
++  const groups = ["e\u0301", "\r\n", "\u{1f468}\u200d\u{1f469}\u200d\u{1f467}", "\u{1f1fa}\u{1f1f3}"]
++  const suffix = groups.join("")
++  const text = "x".repeat(1_000_000 - new TextEncoder().encode(suffix).byteLength) + suffix
++  expect(new TextEncoder().encode(text).byteLength).toBe(1_000_000)
++  const ranges = groups.map((group, index) => {
++    const start = text.length - suffix.length + groups.slice(0, index).join("").length
++    return { start, end: start + group.length }
++  })
++  const value: MessageBodyPlan = {
++    source: input.source,
++    label: "At byte and item caps",
++    items: Array.from({ length: 100 }, (_, index) => ({
++      key: `n${index}`,
++      label: `#${index}`,
++      preview: { start: 0, end: text.length },
++      sections: ranges.map((range, index) => ({ label: `Section ${index}`, range })),
++    })),
++  }
++  const iterator = spyOn(Object.getPrototypeOf(new Intl.Segmenter().segment("")), Symbol.iterator)
++  iterator.mockImplementation(() => {
++    throw new Error("Full-body grapheme enumeration is forbidden in plan validation")
++  })
++  try {
++    expect(resolveMessageBody({ ...input, text }, [{ name: "cap.fixture", present: () => value }])).toEqual(value)
++    expect(iterator).not.toHaveBeenCalled()
++  } finally {
++    iterator.mockRestore()
++  }
++})
++
++test("preview and section endpoints agree with exact Unicode grapheme boundaries across multiple ranges", () => {
++  const text =
++    "A" + "e\u0301" + "\r\n" + "\u{1f468}\u200d\u{1f469}\u200d\u{1f467}" + "\u{1f1fa}\u{1f1f3}" + "1\ufe0f\u20e3" + "Z"
++  const points = new Set(
++    [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)]
++      .map((value) => value.index)
++      .concat(text.length),
++  )
++  const resolveRange = (start: number, end: number, section: boolean) => {
++    const full = { start: 0, end: text.length }
++    const range = { start, end }
++    return resolveMessageBody({ ...input, text }, [
++      {
++        name: "unicode.fixture",
++        present: () => ({
++          source: input.source,
++          label: "Unicode",
++          items: [
++            {
++              key: "n",
++              label: "#1",
++              preview: section ? full : range,
++              sections: [
++                { label: "First", range: full },
++                { label: "Second", range: section ? range : full },
++              ],
++            },
++          ],
++        }),
++      },
++    ])
++  }
++  for (let start = 0; start < text.length; start++) {
++    for (let end = start + 1; end <= text.length; end++) {
++      const valid = points.has(start) && points.has(end)
++      expect(!!resolveRange(start, end, false)).toBe(valid)
++      expect(!!resolveRange(start, end, true)).toBe(valid)
++    }
++  }
 +})
 diff --git a/packages/util/package.json b/packages/util/package.json
 index ddd405e73..1566c37a1 100644

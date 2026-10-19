@@ -29,7 +29,7 @@ git -C host apply --index <absolute-path>/opencode-2.0.32-message-body.patch
 git -C host write-tree
 ```
 
-The resulting tree must be `9a34c429f4d6a519b4aa605b565c154b4404fd53`.
+The resulting tree must be `c812f4e577eedc37527677ce403b236af68f8469`.
 The patch bytes must match `provenance.json`; keep LF bytes intact.
 Retain and follow the upstream `AGENTS.md` files and test skills.
 
