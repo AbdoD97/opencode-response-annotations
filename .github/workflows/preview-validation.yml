@@ -1,0 +1,139 @@
+name: Manual preview validation
+run-name: Preview ${{ inputs.candidate_sha }} (release=${{ inputs.release_validation }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Full commit SHA in this public repository to validate
+        required: true
+        type: string
+        default: 74eb2d11df3c105726f7d561b5afa6f817319662
+      release_validation:
+        description: Also build and smoke-test native Windows and macOS binaries
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_INSTALL_CACHE_DIR: ${{ github.workspace }}/.bun-download-cache
+  CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+  CI: '1'
+
+jobs:
+  linux:
+    if: github.repository == 'AbdoD97/opencode-response-annotations' && github.event.repository.private == false && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      candidate_sha: ${{ steps.input.outputs.candidate_sha }}
+    steps:
+      - name: Checkout trusted CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-runner
+          persist-credentials: false
+      - name: Validate exact candidate SHA
+        id: input
+        run: node .ci-runner/.github/ci/validate.mjs input
+      - name: Checkout candidate source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ steps.input.outputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.19.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+      - name: Cache verified dependency downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.BUN_INSTALL_CACHE_DIR }}
+          key: preview-${{ runner.os }}-${{ runner.arch }}-bun1.4.3-${{ hashFiles('candidate/bun.lock', 'candidate/host-patches/*.patch') }}
+          restore-keys: preview-${{ runner.os }}-${{ runner.arch }}-bun1.4.3-
+      - name: Prepare pinned isolated host and dependencies
+        run: node .ci-runner/.github/ci/validate.mjs prepare
+      - name: Bulk offline tests, types and plugin build
+        run: node .ci-runner/.github/ci/validate.mjs bulk
+      - name: Save small failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: failure-linux-${{ github.run_id }}
+          path: .ci-runner/.github/ci/diagnostics/*.txt
+          retention-days: 1
+          if-no-files-found: ignore
+
+  native:
+    needs: linux
+    if: inputs.release_validation && needs.linux.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            platform: win32
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ needs.linux.outputs.candidate_sha }}
+      EXPECTED_PLATFORM: ${{ matrix.platform }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+    steps:
+      - name: Checkout trusted CI scripts
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: .ci-runner
+          persist-credentials: false
+      - name: Validate candidate and native architecture
+        run: node .ci-runner/.github/ci/validate.mjs input
+      - name: Checkout candidate source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.linux.outputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.19.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+      - name: Cache verified dependency downloads
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ env.BUN_INSTALL_CACHE_DIR }}
+          key: preview-${{ runner.os }}-${{ runner.arch }}-bun1.4.3-${{ hashFiles('candidate/bun.lock', 'candidate/host-patches/*.patch') }}
+          restore-keys: preview-${{ runner.os }}-${{ runner.arch }}-bun1.4.3-
+      - name: Prepare pinned isolated host and dependencies
+        run: node .ci-runner/.github/ci/validate.mjs prepare
+      - name: Native build, startup and targeted offline integration
+        run: node .ci-runner/.github/ci/validate.mjs native
+      - name: Save small failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: failure-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          path: .ci-runner/.github/ci/diagnostics/*.txt
+          retention-days: 1
+          if-no-files-found: ignore
